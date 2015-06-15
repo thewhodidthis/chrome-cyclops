@@ -1,0 +1,60 @@
+body {
+  margin: .75rem;
+}
+
+span {
+  line-height: 1;
+  display: inline-block;
+}
+
+small {
+  color: #aaa;
+  font-size: 9px;
+  line-height: 1.25;
+  display: inline-block;
+}
+
+form {
+  width: 100%;
+  overflow: hidden;
+}
+
+label {
+  display: block;
+  margin-bottom: .5rem;
+}
+
+label span {
+  margin-bottom: -1px;
+  vertical-align: bottom;
+}
+
+textarea {
+  width: 100%;
+  max-width: 30rem;
+}
+
+input[type="button"] {
+  margin-top: .5rem;
+}
+input[type="checkbox"] {
+  bottom: 1px;
+  position: relative;
+  vertical-align: middle;
+}
+
+.flash {
+  color: #999;
+}
+.flash {
+  overflow: hidden;
+  max-width: 200px;
+  white-space: nowrap;
+  padding-left: .25rem;
+  vertical-align: middle;
+  text-overflow: ellipsis;
+}
+.flash span {
+  text-decoration: underline;
+}
+

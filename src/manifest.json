@@ -1,0 +1,66 @@
+{
+  "name": "Cyclops",
+  "version": "0.0.1",
+  "manifest_version": 2,
+  "description": "Helps source images while browsing for use with cyclops 3D",
+  "homepage_url": "https://github.com/thewhodidthis/cyclops-chrome",
+  "minimum_chrome_version": "23",
+  "icons": {
+    "16": "img/icon16.png",
+    "19": "img/icon19.png",
+    "32": "img/icon32.png",
+    "48": "img/icon48.png",
+    "128": "img/icon128.png"
+  },
+  "background": {
+    "scripts": [
+      "js/vendor/socket.io/socket.io.js",
+      "js/background.js"
+    ],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "exclude_matches": [
+        "*://localhost/"
+      ],
+      "js": [
+        "js/content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "commands": {
+    "toggle_timer": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+J"
+      },
+      "description": "Toggle timer"
+    },
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K"
+      }
+    }
+  },
+  "browser_action": {
+    "default_icon": "img/icon19.png"
+  },
+  "permissions": [
+    "tabs",
+    "alarms",
+    "storage",
+    "activeTab",
+    "notifications",
+    "contextMenus",
+    "<all_urls>"
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "chrome_style": true
+  }
+}

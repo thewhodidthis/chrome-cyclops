@@ -1,0 +1,31 @@
+{
+  "name": "cyclops-chrome",
+  "version": "0.0.1",
+  "authors": [
+    "Sotiris Bakagiannis <sotirios.bakagiannis@gmail.com>"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/thewhodidthis/cyclops-chrome",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "src/js/vendor/",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "AppResourceLoader": "latest",
+    "socket.io-client": "latest"
+  },
+  "install": {
+    "path" : {
+      "css": "src/css",
+      "js": "src/js/vendor"
+    },
+    "sources" : {
+      "AppResourceLoader" : "bower_components/AppResourceLoader/lib/ral.min.js",
+      "socket.io" : "bower_components/socket.io-client/socket.io.js"
+    }
+  }
+}

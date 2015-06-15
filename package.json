@@ -1,0 +1,38 @@
+{
+  "name": "cyclops-chrome",
+  "version": "0.0.1",
+  "description": "Helps source images while browsing for use with cyclops 3D",
+  "author": "sChzs BkgNns <sotirios.bakagiannis@gmail.com> (http://thewhodidthis.com)",
+  "scripts": {
+    "env": "env",
+    "clean": "npm run clean:logs",
+    "clean:logs": "rm -rf *.log",
+    "lint": "npm run lint:js && npm run lint:css",
+    "lint:js": "(jshint src/js/*.js & jscs src/js/*.js --reporter=inlinesingle) 2>&1 | tee lint.log",
+    "lint:css": "csslint src/css/*.css --format=compact --quiet 2>&1 | tee -a lint.log",
+    "postlint": "find lint.log -size 0 -print0 | xargs -0 rm"
+  },
+  "repository": {
+    "type": "git",
+    "url": "thewhodidthis/cyclops-chrome"
+  },
+  "config": {
+    "host": "localhost",
+    "jscsrc": ".jscsrc"
+  },
+  "keywords": ["cyclops"],
+  "devDependencies": {
+    "jscs": "latest",
+    "jshint": "latest",
+    "clean-css": "latest",
+    "csslint": "latest",
+    "bower-installer": "latest"
+  },
+  "engines": {
+    "node": ">=0.12.0",
+    "npm": ">=2.0.0"
+  },
+  "preferGlobal": false,
+  "private": true,
+  "license": "MIT"
+}
