@@ -1,12 +1,12 @@
 (function(window, document, undefined) {
   'use strict';
 
-  var socket = io.connect('http://cyclops.ws', {
-    'reconnectionAttempts': 1
+  var host = 'http://localhost:8022';
+  var host = 'http://cyclops.ws';
+
+  var socket = io.connect(host, {
+    'reconnectionAttempts': 10
   });
-  //var socket = io.connect('http://localhost:8022', {
-    //'reconnectionAttempts': 1
-  //});
 
   var connected;
   var watchlist = {};
@@ -73,17 +73,13 @@
       needsWatching = false;
     }
 
-    //if (isBlacklisted) {
-      //needsWatching = false;
-    //}
-
     target.loop = needsWatching;
     target.url = tabUrl;
 
     watchlist[tabId] = target;
 
-    console.log('needsWatching', needsWatching);
-    console.log('target.loop', target.loop);
+    //console.log('needsWatching', needsWatching);
+    //console.log('target.loop', target.loop);
 
     updateContextMenu(needsWatching);
 
@@ -105,7 +101,7 @@
         title: 'Cyclops',
         iconUrl: 'img/icon48.png',
         message: stamp + ' - Connected',
-        contextMessage: 'Time to feed the beast'
+        contextMessage: 'Ready to roll'
       });
     });
 
@@ -150,7 +146,7 @@
     chrome.contextMenus.create({
       type: 'normal',
       id: 'feed-the-beast',
-      title: 'Feed The Beast',
+      title: 'Feed the Beast',
       contexts: ['image']
     });
 
