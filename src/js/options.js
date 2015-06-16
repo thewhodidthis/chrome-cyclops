@@ -7,17 +7,13 @@
   var $flash = document.getElementById('flash');
 
   var $rate = document.getElementById('rate');
-  var $freeze = document.getElementById('freeze');
   var $notify = document.getElementById('notify');
+  var $freeze = document.getElementById('freeze');
   var $blacklist = document.getElementById('blacklist');
 
   var createFlashMessage = function _createFlashMessage(msg) {
-    if(! msg) {
-      return;
-    }
-
     // set flash mesage, escaped on input
-    $flash.innerHTML = msg;
+    $flash.innerHTML = msg || '';
 
     // clear out after a short while
     setTimeout(function() {
@@ -29,8 +25,8 @@
     var options = options || {};
 
     var sampleRate = options.rate || 1;
-    var wantsNotifications = options.notify || false;
-    var wantsNoTimer = options.freeze || false;
+    var wantsAlerts = options.notify || false;
+    var wantsFreeze = options.freeze || false;
 
     var blacklistedUrls = options.blacklist || [];
     var blacklistedUrlsText = '';
@@ -41,8 +37,8 @@
 
     // set form inputs
     $rate.value = sampleRate;
-    $notify.checked = wantsNotifications;
-    $freeze.checked = wantsNoTimer;
+    $notify.checked = wantsAlerts;
+    $freeze.checked = wantsFreeze;
     $blacklist.value = blacklistedUrlsText;
   };
 
@@ -50,12 +46,9 @@
     var options = {};
 
     var sampleRate = parseFloat($rate.value);
-    var wantsNotifications = !!$notify.checked;
-    var wantsNoTimer = !!$freeze.checked;
+    var wantsAlerts = !!$notify.checked;
+    var wantsFreeze = !!$freeze.checked;
     var blacklistedUrls = escapeHtml($blacklist.value).split(/\n/);
-
-    // check for double entries?
-    // http://stackoverflow.com/questions/7376598/in-javascript-how-do-i-check-if-an-array-has-duplicate-values
 
     // cleanup
     for (var i = 0, total = blacklistedUrls.length; i < total; i += 1) {
@@ -73,6 +66,11 @@
         i--;
       }
     }
+
+    // remove duplicates
+    blacklistedUrls = blacklistedUrls.filter(function(url, idx, list) {
+      return list.indexOf(url) === idx;
+    });
 
     // check for gobbledygooked list entries
     for (var i = 0, total = blacklistedUrls.length; i < total; i += 1) {
@@ -92,15 +90,15 @@
     }
 
     options.rate = sampleRate;
-    options.notify = wantsNotifications;
-    options.freeze = wantsNoTimer;
+    options.notify = wantsAlerts;
+    options.freeze = wantsFreeze;
     options.blacklist = blacklistedUrls;
 
     return options;
   };
 
   // on show: update form, attach button handlers
-  chrome.storage.sync.get(['rate', 'freeze', 'notify', 'blacklist'], function(options) {
+  chrome.storage.sync.get(['rate', 'notify', 'freeze', 'blacklist'], function(options) {
     $save.addEventListener('click', function(e) {
       var options = getFormData();
 

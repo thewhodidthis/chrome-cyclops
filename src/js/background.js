@@ -1,7 +1,7 @@
 (function(window, document, undefined) {
   'use strict';
 
-  var host = 'http://localhost:8022';
+  //var host = 'http://localhost:8022';
   var host = 'http://cyclops.ws';
 
   var socket = io.connect(host, {
@@ -19,7 +19,7 @@
   };
 
   var updateIcon = function _updateIcon(active) {
-    var iconPath = 'img/icon19-inactive.png';
+    var iconPath = 'img/grayscale/icon19.png';
 
     if (active) {
       iconPath = 'img/icon19.png';
@@ -126,7 +126,7 @@
       chrome.notifications.create({
         type: 'basic',
         title: 'Cyclops',
-        iconUrl: 'img/icon48-inactive.png',
+        iconUrl: 'img/grayscale/icon48.png',
         message: stamp + ' - Disconnected',
         contextMessage: 'Server is down, try again in a short while'
       });
@@ -159,12 +159,13 @@
       contexts: ['browser_action']
     });
 
-    chrome.storage.sync.get(['rate', 'freeze', 'notify', 'blacklist'], function(options) {
+    chrome.storage.sync.get(['rate', 'notify', 'freeze', 'blacklist'], function(options) {
       if (Object.keys(options).length === 0) {
+        // defaults
         options = {
           rate: 1,
-          freeze: false,
           notify: false,
+          freeze: false,
           blacklist: ['cyclops.ws', 'mail.yahoo.com', 'mail.google.com', 'docs.google.com']
         };
       }

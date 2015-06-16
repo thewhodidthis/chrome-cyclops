@@ -10,12 +10,9 @@
     "**/.*",
     "node_modules",
     "bower_components",
-    "src/js/vendor/",
-    "test",
-    "tests"
+    "src/js/vendor/"
   ],
   "dependencies": {
-    "AppResourceLoader": "latest",
     "socket.io-client": "latest"
   },
   "install": {
@@ -24,7 +21,6 @@
       "js": "src/js/vendor"
     },
     "sources" : {
-      "AppResourceLoader" : "bower_components/AppResourceLoader/lib/ral.min.js",
       "socket.io" : "bower_components/socket.io-client/socket.io.js"
     }
   }

@@ -23,7 +23,6 @@ label {
   display: block;
   margin-bottom: .5rem;
 }
-
 label span {
   margin-bottom: -1px;
   vertical-align: bottom;
@@ -37,6 +36,7 @@ textarea {
 input[type="button"] {
   margin-top: .5rem;
 }
+
 input[type="checkbox"] {
   bottom: 1px;
   position: relative;

@@ -4,7 +4,6 @@
   "description": "Helps source images while browsing for use with cyclops 3D",
   "author": "sChzs BkgNns <sotirios.bakagiannis@gmail.com> (http://thewhodidthis.com)",
   "scripts": {
-    "env": "env",
     "clean": "npm run clean:logs",
     "clean:logs": "rm -rf *.log",
     "lint": "npm run lint:js && npm run lint:css",
@@ -17,14 +16,12 @@
     "url": "thewhodidthis/cyclops-chrome"
   },
   "config": {
-    "host": "localhost",
     "jscsrc": ".jscsrc"
   },
-  "keywords": ["cyclops"],
+  "keywords": ["chrome, cyclops, le cyclop"],
   "devDependencies": {
     "jscs": "latest",
     "jshint": "latest",
-    "clean-css": "latest",
     "csslint": "latest",
     "bower-installer": "latest"
   },
