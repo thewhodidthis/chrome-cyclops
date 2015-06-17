@@ -1,26 +1,39 @@
 (function(window, document, undefined) {
   'use strict';
 
-  //var host = 'http://localhost:8022';
+  var connected;
+  var watchlist = {};
+
   var host = 'http://cyclops.ws';
 
   var socket = io.connect(host, {
     'reconnectionAttempts': 10
   });
 
-  var freeze;
-  var connected;
+  var updateBrowserActionFor = function _updateBrowserActionFor(tabId) {
+    chrome.storage.sync.get(['rate', 'freeze'], function(options) {
+      var rate = options.rate;
+      var freeze = options.freeze;
 
-  var watchlist = {};
-  //var blacklist = [];
-
-  var updateIcon = function _updateIcon(activate) {
-    chrome.storage.sync.get( 'freeze', function(options) {
-      var enabled = !options.freeze && activate;
+      var target = watchlist[tabId];
+      var wantsTimer = target.watch;
 
       var iconPath = 'img/grayscale/icon19.png';
 
-      if (enabled) {
+      if (freeze) {
+        chrome.alarms.clearAll();
+      } else {
+        if (wantsTimer) {
+          // create or update
+          chrome.alarms.create('cyclops', {
+            periodInMinutes: rate
+          });
+        } else {
+          chrome.alarms.clearAll();
+        }
+      }
+
+      if (wantsTimer && !freeze) {
         iconPath = 'img/icon19.png';
       }
 
@@ -28,56 +41,14 @@
         path: iconPath
       });
 
-      //chrome.contextMenus.update('toggle-timer', {
-        //enabled: enabled,
-        //checked: checked
-      //});
-    });
-  };
-
-  var updateTimer = function _updateTimer(start) {
-    if (start) {
-      chrome.storage.sync.get(['rate', 'freeze'], function(options) {
-        var rate = options.rate;
-        var freeze = options.freeze;
-
-        if (freeze) {
-          chrome.alarms.clearAll();
-        } else {
-          // create or update
-          chrome.alarms.create('cyclops', {
-            periodInMinutes: rate
-          });
-        }
-      });
-    } else {
-      chrome.alarms.clearAll();
-    }
-  };
-
-  var updateContextMenu = function _updateContextMenu(checked, enabled) {
-    chrome.storage.sync.get( 'freeze', function(options) {
-      var enabled = !options.freeze;
-
       chrome.contextMenus.update('toggle-timer', {
-        enabled: enabled,
-        checked: checked
+        enabled: !freeze,
+        checked: wantsTimer
       });
     });
   };
 
-  var updateBrowserAction = function _updateBrowserAction(flag) {
-    chrome.storage.sync.get(['rate', 'freeze'], function(options) {
-      var enabled = !options.freeze;
-
-      chrome.contextMenus.update('toggle-timer', {
-        enabled: enabled,
-        checked: checked
-      });
-    });
-  };
-
-  var updateWatchlistDataFor = function _updateWatchlistDataFor(tab, isNew) {
+  var updateWatchlistDataFor = function _updateWatchlistDataFor(tab) {
     var tabId = tab.id;
     var tabUrl = tab.url;
 
@@ -85,7 +56,9 @@
     var wantsTimer = (target.hasOwnProperty('watch')) ? target.watch : true;
 
     var isNew = (Object.keys(watchlist).indexOf(tabId.toString()) === -1);
-    var hasUrlChanged = (typeof target.url === undefined || target.url !== tabUrl);
+    var isChromeUrl = (tabUrl.indexOf('chrome://') === 0);
+
+    var hasUrlChanged = (typeof target.url === undefined || target.url !== tabUrl || isNew);
 
     chrome.storage.sync.get('blacklist', function(options) {
       var blacklist = options.blacklist;
@@ -94,11 +67,11 @@
         return tabUrl.indexOf(url) !== -1;
       });
 
-      if (isNew) {
+      if (hasUrlChanged) {
         wantsTimer = true;
       }
 
-      if ((isNew || hasUrlChanged) && isBlacklisted) {
+      if ((hasUrlChanged && isBlacklisted) || isChromeUrl) {
         wantsTimer = false;
       }
 
@@ -107,10 +80,7 @@
 
       watchlist[tabId] = target;
 
-      updateContextMenu(wantsTimer);
-
-      updateIcon(wantsTimer);
-      updateTimer(wantsTimer);
+      updateBrowserActionFor(tabId);
     });
   };
 
@@ -197,53 +167,9 @@
     });
   });
 
-/*  chrome.storage.sync.get(['blacklist', 'freeze'], function(options) {*/
-    //var wantsFreeze = options.freeze;
-    //var blacklist = options.blacklist;
-
-    ////chrome.contextMenus.update('toggle-timer', {
-      ////enabled: wantsFreeze
-    ////});
-
-    //updateIcon(wantsFreeze);
-    //updateTimer(wantsFreeze);
-
-    //updateContextMenu(wantsFreeze, wantsFreeze);
-  /*});*/
-
   chrome.storage.onChanged.addListener(function _onStorageChanged(changes) {
     if (changes.blacklist) {
       watchlist = {};
-      //blacklist = changes.blacklist.newValue;
-    }
-
-    if (changes.freeze) {
-      var wantsFreeze = changes.freeze.newValue;
-
-      console.log('wantsFreeze', wantsFreeze);
-
-      //if (freeze) {
-        //chrome.alarms.clearAll();
-      //}
-
-      //chrome.contextMenus.update('toggle-timer', {
-        //enabled: !freeze
-      //});
-
-      updateIcon(!wantsFreeze);
-      updateTimer(!wantsFreeze);
-
-      updateContextMenu(!wantsFreeze, wantsFreeze);
-    }
-
-    if (changes.rate) {
-      var rate = changes.rate.newValue;
-
-      chrome.alarms.getAll(function(alarms) {
-        alarms.forEach(function(alarm) {
-          alarm.periodInMinutes = rate;
-        });
-      });
     }
   });
 
@@ -295,12 +221,10 @@
     if (menuItemId === 'toggle-timer') {
       var tabId = tab.id;
       var target = watchlist[tabId];
-      var wantsTimer = info.checked;
 
-      target.watch = wantsTimer;
+      target.watch = info.checked;
 
-      updateIcon(wantsTimer);
-      updateTimer(wantsTimer);
+      updateBrowserActionFor(tabId);
 
       return;
     }
@@ -318,26 +242,16 @@
 
         var tabId = tabs[0].id;
         var target = watchlist[tabId];
-        var wantsTimer = !target.watch;
 
-        target.watch = wantsTimer;
+        target.watch = !target.watch;
 
-        updateIcon(wantsTimer);
-        updateTimer(wantsTimer);
+        updateBrowserActionFor(tabId);
 
-        updateContextMenu(wantsTimer);
+        return;
       });
 
       return;
     }
-  });
-
-  chrome.browserAction.onClicked.addListener(function(tab) {
-    var tabId = tab.id;
-
-    chrome.tabs.sendMessage(tabId, {
-      message: 'alarmfired'
-    });
   });
 
   chrome.alarms.onAlarm.addListener(function() {
@@ -354,6 +268,14 @@
       chrome.tabs.sendMessage(tabId, {
         message: 'alarmfired'
       });
+    });
+  });
+
+  chrome.browserAction.onClicked.addListener(function(tab) {
+    var tabId = tab.id;
+
+    chrome.tabs.sendMessage(tabId, {
+      message: 'alarmfired'
     });
   });
 
@@ -419,7 +341,6 @@
   function formatUrl(target) {
     // remove protocol
     var url = target.replace(/.*?:\/\//g, '');
-
     // remove trailing slash from end of string
     url = url.replace(/\/$/, '');
 
