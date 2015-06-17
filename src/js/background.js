@@ -8,30 +8,35 @@
     'reconnectionAttempts': 10
   });
 
+  var freeze;
   var connected;
+
   var watchlist = {};
-  var blacklist = [];
+  //var blacklist = [];
 
-  var updateContextMenu = function _updateContextMenu(checked) {
-    chrome.contextMenus.update('toggle-timer', {
-      checked: checked
+  var updateIcon = function _updateIcon(activate) {
+    chrome.storage.sync.get( 'freeze', function(options) {
+      var enabled = !options.freeze && activate;
+
+      var iconPath = 'img/grayscale/icon19.png';
+
+      if (enabled) {
+        iconPath = 'img/icon19.png';
+      }
+
+      chrome.browserAction.setIcon({
+        path: iconPath
+      });
+
+      //chrome.contextMenus.update('toggle-timer', {
+        //enabled: enabled,
+        //checked: checked
+      //});
     });
   };
 
-  var updateIcon = function _updateIcon(active) {
-    var iconPath = 'img/grayscale/icon19.png';
-
-    if (active) {
-      iconPath = 'img/icon19.png';
-    }
-
-    chrome.browserAction.setIcon({
-      path: iconPath
-    });
-  };
-
-  var updateTimer = function _updateTimer(wants) {
-    if (wants) {
+  var updateTimer = function _updateTimer(start) {
+    if (start) {
       chrome.storage.sync.get(['rate', 'freeze'], function(options) {
         var rate = options.rate;
         var freeze = options.freeze;
@@ -50,37 +55,63 @@
     }
   };
 
+  var updateContextMenu = function _updateContextMenu(checked, enabled) {
+    chrome.storage.sync.get( 'freeze', function(options) {
+      var enabled = !options.freeze;
+
+      chrome.contextMenus.update('toggle-timer', {
+        enabled: enabled,
+        checked: checked
+      });
+    });
+  };
+
+  var updateBrowserAction = function _updateBrowserAction(flag) {
+    chrome.storage.sync.get(['rate', 'freeze'], function(options) {
+      var enabled = !options.freeze;
+
+      chrome.contextMenus.update('toggle-timer', {
+        enabled: enabled,
+        checked: checked
+      });
+    });
+  };
+
   var updateWatchlistDataFor = function _updateWatchlistDataFor(tab, isNew) {
     var tabId = tab.id;
     var tabUrl = tab.url;
 
     var target = watchlist[tabId] || {};
-    var needsWatching = (target.hasOwnProperty('loop')) ? target.loop : true;
+    var wantsTimer = (target.hasOwnProperty('watch')) ? target.watch : true;
 
     var isNew = (Object.keys(watchlist).indexOf(tabId.toString()) === -1);
     var hasUrlChanged = (typeof target.url === undefined || target.url !== tabUrl);
 
-    var isBlacklisted = blacklist.some(function(url) {
-      return tabUrl.indexOf(url) !== -1;
+    chrome.storage.sync.get('blacklist', function(options) {
+      var blacklist = options.blacklist;
+
+      var isBlacklisted = blacklist.some(function(url) {
+        return tabUrl.indexOf(url) !== -1;
+      });
+
+      if (isNew) {
+        wantsTimer = true;
+      }
+
+      if ((isNew || hasUrlChanged) && isBlacklisted) {
+        wantsTimer = false;
+      }
+
+      target.watch = wantsTimer;
+      target.url = tabUrl;
+
+      watchlist[tabId] = target;
+
+      updateContextMenu(wantsTimer);
+
+      updateIcon(wantsTimer);
+      updateTimer(wantsTimer);
     });
-
-    if (isNew) {
-      needsWatching = true;
-    }
-
-    if ((isNew || hasUrlChanged) && isBlacklisted) {
-      needsWatching = false;
-    }
-
-    target.loop = needsWatching;
-    target.url = tabUrl;
-
-    watchlist[tabId] = target;
-
-    updateContextMenu(needsWatching);
-
-    updateIcon(needsWatching);
-    updateTimer(needsWatching);
   };
 
   socket.on('connect', function(e) {
@@ -106,7 +137,7 @@
 
   socket.on('connect_error', function(e) {
     // run only once
-    if (typeof connected !== 'undefined') {
+    if (typeof connected !== undefined) {
       connected = false;
 
       return;
@@ -166,30 +197,43 @@
     });
   });
 
-  chrome.storage.sync.get(['blacklist', 'freeze'], function(options) {
-    blacklist = options.blacklist;
+/*  chrome.storage.sync.get(['blacklist', 'freeze'], function(options) {*/
+    //var wantsFreeze = options.freeze;
+    //var blacklist = options.blacklist;
 
-    chrome.contextMenus.update('toggle-timer', {
-      enabled: !options.freeze
-    });
-  });
+    ////chrome.contextMenus.update('toggle-timer', {
+      ////enabled: wantsFreeze
+    ////});
+
+    //updateIcon(wantsFreeze);
+    //updateTimer(wantsFreeze);
+
+    //updateContextMenu(wantsFreeze, wantsFreeze);
+  /*});*/
 
   chrome.storage.onChanged.addListener(function _onStorageChanged(changes) {
     if (changes.blacklist) {
       watchlist = {};
-      blacklist = changes.blacklist.newValue;
+      //blacklist = changes.blacklist.newValue;
     }
 
     if (changes.freeze) {
-      var freeze = changes.freeze.newValue;
+      var wantsFreeze = changes.freeze.newValue;
 
-      if (freeze) {
-        chrome.alarms.clearAll();
-      }
+      console.log('wantsFreeze', wantsFreeze);
 
-      chrome.contextMenus.update('toggle-timer', {
-        enabled: !freeze
-      });
+      //if (freeze) {
+        //chrome.alarms.clearAll();
+      //}
+
+      //chrome.contextMenus.update('toggle-timer', {
+        //enabled: !freeze
+      //});
+
+      updateIcon(!wantsFreeze);
+      updateTimer(!wantsFreeze);
+
+      updateContextMenu(!wantsFreeze, wantsFreeze);
     }
 
     if (changes.rate) {
@@ -251,12 +295,12 @@
     if (menuItemId === 'toggle-timer') {
       var tabId = tab.id;
       var target = watchlist[tabId];
-      var needsWatching = info.checked;
+      var wantsTimer = info.checked;
 
-      target.loop = needsWatching;
+      target.watch = wantsTimer;
 
-      updateIcon(needsWatching);
-      updateTimer(needsWatching);
+      updateIcon(wantsTimer);
+      updateTimer(wantsTimer);
 
       return;
     }
@@ -274,13 +318,14 @@
 
         var tabId = tabs[0].id;
         var target = watchlist[tabId];
-        var needsWatching = !target.loop;
+        var wantsTimer = !target.watch;
 
-        target.loop = needsWatching;
+        target.watch = wantsTimer;
 
-        updateContextMenu(needsWatching);
-        updateIcon(needsWatching);
-        updateTimer(needsWatching);
+        updateIcon(wantsTimer);
+        updateTimer(wantsTimer);
+
+        updateContextMenu(wantsTimer);
       });
 
       return;

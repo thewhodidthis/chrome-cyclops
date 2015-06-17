@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "manifest_version": 2,
   "description": "Helps source images while browsing for use with cyclops 3D",
-  "homepage_url": "https://github.com/thewhodidthis/cyclops-chrome",
+  "homepage_url": "http:/www.cyclops.ws",
   "minimum_chrome_version": "23",
   "icons": {
     "16": "img/icon16.png",

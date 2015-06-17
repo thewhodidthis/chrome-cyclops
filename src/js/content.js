@@ -23,9 +23,9 @@
     return val;
   };
 
+  // exclude common cases of impossible imgs
   var cleanup = function _cleanup(input) {
     var output = input || [];
-    // exclude common cases of impossible imgs
     // lazyloaded, empty src attr
     output = output.filter(function _checkSrc(img, idx, self) {
       return img.src;
