@@ -55,7 +55,7 @@
     var tabUrl = tab.url;
 
     var target = watchlist[tabId] || {};
-    var needsWatching = target.loop || true;
+    var needsWatching = (target.hasOwnProperty('loop')) ? target.loop : true;
 
     var isNew = (Object.keys(watchlist).indexOf(tabId.toString()) === -1);
     var hasUrlChanged = (typeof target.url === undefined || target.url !== tabUrl);
@@ -68,7 +68,6 @@
       needsWatching = true;
     }
 
-    //need to check if blacklist has changed
     if ((isNew || hasUrlChanged) && isBlacklisted) {
       needsWatching = false;
     }
@@ -77,9 +76,6 @@
     target.url = tabUrl;
 
     watchlist[tabId] = target;
-
-    //console.log('needsWatching', needsWatching);
-    //console.log('target.loop', target.loop);
 
     updateContextMenu(needsWatching);
 
@@ -135,10 +131,6 @@
     connected = false;
   });
 
-  chrome.storage.sync.get('blacklist', function _resetBlacklist(options) {
-    blacklist = options.blacklist;
-  });
-
   // runs on load, reload, and after browser or extension updates
   chrome.runtime.onInstalled.addListener(function _onInstalled() {
     // setup context menus
@@ -171,6 +163,14 @@
       }
 
       chrome.storage.sync.set(options);
+    });
+  });
+
+  chrome.storage.sync.get(['blacklist', 'freeze'], function(options) {
+    blacklist = options.blacklist;
+
+    chrome.contextMenus.update('toggle-timer', {
+      enabled: !options.freeze
     });
   });
 
@@ -281,8 +281,6 @@
         updateContextMenu(needsWatching);
         updateIcon(needsWatching);
         updateTimer(needsWatching);
-
-        return;
       });
 
       return;
