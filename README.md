@@ -1,2 +1,3 @@
-## Cyclops 3D - chrome
+## Myopic chrome extension
+> Helps source images while browsing
 

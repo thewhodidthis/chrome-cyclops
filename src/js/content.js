@@ -1,103 +1,83 @@
-(function(window, document, undefined) {
-  'use strict';
+((window, document) => {
+  // Store images to choose from
+  // Could this be a map containing images and seeds?
+  let seeds = [];
 
-  var total = 0;
-  var seeds = [];
-  var source = location.hostname;
-  var origin = location.origin;
+  // Convert node list into array
+  // More: http://stackoverflow.com/questions/2735067/how-to-convert-a-dom-node-list-to-an-array-in-javascript
+  const $$ = elements => Array.from(elements);
 
-  var getSeed = function _getUniqueRandomSeed(max) {
-    // refill unique seeds array if empty
-    if (! seeds.length) {
-      for (var i = 0; i < max; i += 1) {
-        seeds.push(i);
-      }
-    }
+  // Dedupe
+  // From: http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
+  const uniq = a => [...new Set(a)];
 
-    var idx = Math.floor(Math.random() * seeds.length);
-    var val = seeds[idx];
+  // Return a random image and adjust the image array accordingly
+  // TODO: This is not perfect yet
+  const getSeed = (max) => {
+    // Refill unique seeds array if empty the es6 way
+    // More: http://stackoverflow.com/questions/3746725/create-a-javascript-array-containing-1-n
+    // seeds = seeds.length ? seeds : [...Array(max).keys()];
+    seeds = (seeds.length && seeds.length >= max) ? seeds : [...Array(max).keys()];
 
-    // remove once seed acquired
+    // Index between 0 and max
+    const idx = Math.floor(Math.random() * max);
+
+    // The image source
+    const val = seeds[idx];
+
+    // Remove once seed acquired
     seeds.splice(idx, 1);
 
     return val;
   };
 
-  // exclude common cases of impossible imgs
-  var cleanup = function _cleanup(input) {
-    var output = input || [];
-    // lazyloaded, empty src attr
-    output = output.filter(function _checkSrc(img, idx, self) {
-      return img.src;
-    });
+  // Exclude common cases of impossible imgs
+  const getImages = (host = document) => {
+    let output = $$(host.getElementsByTagName('img')) || [];
 
-    // cleargifs, 1x1
-    output = output.filter(function _checkSize(img, idx, self) {
-      return (img.naturalWidth > 1 && img.naturalHeight > 1);
-    });
+    // Filter our lazyloaded imgs, empty src attr
+    output = output.filter(img => img.src);
 
-    // extract src attr
-    output = output.map(function _replaceWithSrc(img, idx, self) {
-      return img.src;
-    });
+    // Filter our cleargifs, 1x1s
+    output = output.filter(img => (img.naturalWidth > 1 && img.naturalHeight > 1));
 
-    // remove duplicates
+    // Extract src attr
+    output = output.map(img => img.src);
+
+    // Dedupe
     output = uniq(output);
 
     return output;
   };
 
-  var $iframes = document.getElementsByTagName('iframe');
-  var iframes = Array.prototype.slice.call($iframes);
+  const images = getImages();
 
-  var $images = document.getElementsByTagName('img');
-  var images = Array.prototype.slice.call($images);
-
-  images = cleanup(images);
-  total = images.length;
-
-  if (total < 1) {
-    return;
-  }
-
-  // useful with tumblr photosets
-  window.addEventListener('load', function _onLoad(e) {
-    iframes = iframes.filter(function(iframe) {
-      // include same domain iframes only
-      return (iframe.src.indexOf(origin) === 0);
-    });
-
-    iframes.forEach(function(iframe) {
-      var $iframeImages = iframe.contentDocument.getElementsByTagName('img');
-      var iframeImages = Array.prototype.slice.call($iframeImages);
-
-      iframeImages = cleanup(iframeImages);
-
-      images = images.concat(iframeImages);
-    });
-  }, false);
-
-  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    if (request.message === 'alarmfired') {
-      var max = images.length;
-      var seed = getSeed(max);
-      var target = images[seed];
-
+  // Fired at rate if timer set
+  chrome.runtime.onMessage.addListener((request) => {
+    // Skip if no images pass the checks or request looks foreign
+    if (images && images.length > 1 && request.message === '@cyclops/sample') {
+      // Tell the background script
       chrome.runtime.sendMessage({
-        incoming: {
-          target: target,
-          source: source
+        cyclops: {
+          target: images[getSeed(images.length)],
+          source: location.hostname
         }
       });
     }
   });
 
-  // http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
-  function uniq(a) {
-    var seen = {};
+  // Dig deeper image gathering operations :)
+  window.addEventListener('load', () => {
+    const iframes = $$(document.getElementsByTagName('iframe'));
 
-    return a.filter(function(item) {
-      return seen.hasOwnProperty(item) ? false : (seen[item] = true);
-    });
-  }
+    // Refresh image list
+    if (iframes.length) {
+      // Useful with tumblr photosets
+      iframes
+        // Avoid cross origin issues, include same domain iframes only
+        .filter(i => i.src.indexOf(location.origin) === 0)
+        // Get the images inside of the iframes on the page, but only if they pass the checks
+        .forEach(iframe => images.push(...getImages(iframe.contentDocument)));
+    }
+  });
 })(window, document);

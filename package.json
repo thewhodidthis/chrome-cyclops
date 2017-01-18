@@ -1,35 +1,32 @@
 {
-  "name": "cyclops-chrome",
-  "version": "0.0.1",
-  "description": "Helps source images while browsing for use with cyclops 3D",
-  "author": "sChzs BkgNns <sotirios.bakagiannis@gmail.com> (http://thewhodidthis.com)",
+  "name": "chrome-cyclops",
+  "description": "Helps source images while browsing",
+  "version": "1.0.0",
+  "keywords": [
+    "cyclops",
+    "image"
+  ],
   "scripts": {
-    "clean": "npm run clean:logs",
-    "clean:logs": "rm -rf *.log",
-    "lint": "npm run lint:js && npm run lint:css",
-    "lint:js": "(jshint src/js/*.js & jscs src/js/*.js --reporter=inlinesingle) 2>&1 | tee lint.log",
-    "lint:css": "csslint src/css/*.css --format=compact --quiet 2>&1 | tee -a lint.log",
-    "postlint": "find lint.log -size 0 -print0 | xargs -0 rm"
+    "test": "echo \"Error: no test specified\"",
+    "clear": "npm run clear:dist && npm run clear:logs",
+    "clear:dist": "rm -rf dist/",
+    "clear:logs": "rm -rf *.log",
+    "lint": "npm run lint:es && npm run lint:css",
+    "lint:es": "eslint src/js/*.js; exit 0",
+    "lint:css": "csslint src/css/*.css --format=compact",
+    "start": "npm run build",
+    "prebuild": "mkdir -p dist",
+    "build": "cd src && zip ../dist/chrome-cyclops.zip -r . -x *.DS_Store"
   },
-  "repository": {
-    "type": "git",
-    "url": "thewhodidthis/cyclops-chrome"
-  },
-  "config": {
-    "jscsrc": ".jscsrc"
-  },
-  "keywords": ["chrome, cyclops, le cyclop"],
   "devDependencies": {
-    "jscs": "latest",
-    "jshint": "latest",
-    "csslint": "latest",
-    "bower-installer": "latest"
+    "eslint": "latest",
+    "csslint": "latest"
   },
   "engines": {
-    "node": ">=0.12.0",
-    "npm": ">=2.0.0"
+    "node": ">=6.6.0",
+    "npm": ">=3.10.3"
   },
-  "preferGlobal": false,
-  "private": true,
-  "license": "MIT"
+  "author": "sChzs BkgNns <sotirios.bakagiannis@gmail.com> (https://www.thewhodidthis.com)",
+  "license": "MIT",
+  "private": true
 }

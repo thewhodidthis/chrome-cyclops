@@ -1,5 +1,9 @@
 body {
-  margin: .75rem;
+  margin: 0.75rem;
+}
+
+p {
+  margin: 0.75rem 0 0;
 }
 
 span {
@@ -21,24 +25,20 @@ form {
 
 label {
   display: block;
-  margin-bottom: .5rem;
+  margin-bottom: 0.5rem;
 }
+
 label span {
-  margin-bottom: -1px;
-  vertical-align: bottom;
+  vertical-align: middle;
 }
 
 textarea {
   width: 100%;
   max-width: 30rem;
-}
-
-input[type="button"] {
-  margin-top: .5rem;
+  box-sizing: border-box;
 }
 
 input[type="checkbox"] {
-  bottom: 1px;
   position: relative;
   vertical-align: middle;
 }
@@ -46,15 +46,16 @@ input[type="checkbox"] {
 .flash {
   color: #999;
 }
+
 .flash {
   overflow: hidden;
   max-width: 200px;
   white-space: nowrap;
-  padding-left: .25rem;
+  padding-left: 0.25rem;
   vertical-align: middle;
   text-overflow: ellipsis;
 }
+
 .flash span {
   text-decoration: underline;
 }
-

@@ -1,349 +1,292 @@
-(function(window, document, undefined) {
-  'use strict';
+// Default settings
+const defaults = {
+  // Alert how fast
+  rate: 1,
 
-  var connected;
-  var watchlist = {};
+  // Host url
+  host: 'http://localhost:8022/io' || 'https://api.cyclops.ws',
 
-  var host = 'http://cyclops.ws';
+  // Enabled
+  freeze: false,
 
-  var socket = io.connect(host, {
-    'reconnectionAttempts': 10
-  });
+  // Wants notifications
+  notify: false,
 
-  var updateBrowserActionFor = function _updateBrowserActionFor(tabId) {
-    chrome.storage.sync.get(['rate', 'freeze'], function(options) {
-      var rate = options.rate;
-      var freeze = options.freeze;
+  // Excludes
+  blacklist: [
+    'localhost',
+    'cyclops.ws',
+    'mail.yahoo.com',
+    'mail.google.com',
+    'docs.google.com'
+  ]
+};
 
-      var target = watchlist[tabId];
-      var wantsTimer = target.watch;
+// Tabs currently being watched
+// Maps are available Chrome v38 onwards according to MDN
+const watchlist = new Map();
 
-      var iconPath = 'img/grayscale/icon19.png';
+// Listing following methods from the more generic to the more project specific
+const getTimestamp = () => new Date().toTimeString().split(' ')[0];
+const getObjectUrl = data => (window.URL || window.webkitURL).createObjectURL(data);
 
-      if (freeze) {
-        chrome.alarms.clearAll();
-      } else {
-        if (wantsTimer) {
-          // create or update
-          chrome.alarms.create('cyclops', {
-            periodInMinutes: rate
-          });
-        } else {
-          chrome.alarms.clearAll();
-        }
-      }
+// Clean up image urls, remove protocol, remove trailing slash from end of string
+const formatUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '');
 
-      if (wantsTimer && !freeze) {
-        iconPath = 'img/icon19.png';
-      }
+// For now, a super simple xhr wrapper to help with the network requests
+// TODO: Attempt using fetch or web workersi when the server script is done at some point?
+const sendRequest = (options, callback) => {
+  const xhr = new XMLHttpRequest();
+  const url = options.url || defaults.host;
 
-      chrome.browserAction.setIcon({
-        path: iconPath
-      });
+  if (options.responseType) {
+    xhr.responseType = options.responseType;
+  }
 
-      chrome.contextMenus.update('toggle-timer', {
-        enabled: !freeze,
-        checked: wantsTimer
-      });
-    });
+  if (options.method === 'PUT') {
+    xhr.open('PUT', url);
+  } else {
+    xhr.open('GET', url, true);
+  }
+
+  xhr.onload = () => {
+    callback(xhr.response);
   };
 
-  var updateWatchlistDataFor = function _updateWatchlistDataFor(tab) {
-    var tabId = tab.id;
-    var tabUrl = tab.url;
-
-    var target = watchlist[tabId] || {};
-    var wantsTimer = (target.hasOwnProperty('watch')) ? target.watch : true;
-
-    var isNew = (Object.keys(watchlist).indexOf(tabId.toString()) === -1);
-    var isChromeUrl = (tabUrl.indexOf('chrome://') === 0);
-
-    var hasUrlChanged = (typeof target.url === undefined || target.url !== tabUrl || isNew);
-
-    chrome.storage.sync.get('blacklist', function(options) {
-      var blacklist = options.blacklist;
-
-      var isBlacklisted = blacklist.some(function(url) {
-        return tabUrl.indexOf(url) !== -1;
-      });
-
-      if (hasUrlChanged) {
-        wantsTimer = true;
-      }
-
-      if ((hasUrlChanged && isBlacklisted) || isChromeUrl) {
-        wantsTimer = false;
-      }
-
-      target.watch = wantsTimer;
-      target.url = tabUrl;
-
-      watchlist[tabId] = target;
-
-      updateBrowserActionFor(tabId);
-    });
-  };
-
-  socket.on('connect', function(e) {
-    // connection established
-    chrome.notifications.getPermissionLevel(function(permissionLevel) {
-      if (permissionLevel !== 'granted') {
-        return;
-      }
-
-      var stamp = new Date().toTimeString().split(' ')[0];
-
-      chrome.notifications.create({
-        type: 'basic',
-        title: 'Cyclops',
-        iconUrl: 'img/icon48.png',
-        message: stamp + ' - Connected',
-        contextMessage: 'Ready to roll'
-      });
-    });
-
-    connected = true;
-  });
-
-  socket.on('connect_error', function(e) {
-    // run only once
-    if (typeof connected !== undefined) {
-      connected = false;
-
-      return;
-    }
-
-    chrome.notifications.getPermissionLevel(function(permissionLevel) {
-      if (permissionLevel !== 'granted') {
-        return;
-      }
-
-      var stamp = new Date().toTimeString().split(' ')[0];
-
-      chrome.notifications.create({
-        type: 'basic',
-        title: 'Cyclops',
-        iconUrl: 'img/grayscale/icon48.png',
-        message: stamp + ' - Disconnected',
-        contextMessage: 'Server is down, try again in a short while'
-      });
-    });
-
-    connected = false;
-  });
-
-  // runs on load, reload, and after browser or extension updates
-  chrome.runtime.onInstalled.addListener(function _onInstalled() {
-    // setup context menus
-    // available when right clicking on top of images
-    chrome.contextMenus.create({
-      type: 'normal',
-      id: 'feed-the-beast',
-      title: 'Feed the Beast',
-      contexts: ['image']
-    });
-
-    // available when right clicking on browser action action
-    chrome.contextMenus.create({
-      type: 'checkbox',
-      id: 'toggle-timer',
-      title: 'Run in background',
-      checked: true,
-      contexts: ['browser_action']
-    });
-
-    chrome.storage.sync.get(['rate', 'notify', 'freeze', 'blacklist'], function(options) {
-      if (Object.keys(options).length === 0) {
-        // defaults
-        options = {
-          rate: 1,
-          notify: false,
-          freeze: false,
-          blacklist: ['cyclops.ws', 'mail.yahoo.com', 'mail.google.com', 'docs.google.com']
-        };
-      }
-
-      chrome.storage.sync.set(options);
-    });
-  });
-
-  chrome.storage.onChanged.addListener(function _onStorageChanged(changes) {
-    if (changes.blacklist) {
-      watchlist = {};
-    }
-  });
-
-  chrome.tabs.onRemoved.addListener(function _onTabRemoved(tabId, info) {
-    delete watchlist[tabId];
-  });
-
-  chrome.tabs.onDetached.addListener(function _onTabDetached(tabId, info) {
-    delete watchlist[tabId];
-  });
-
-  chrome.tabs.onReplaced.addListener(function _onTabReplaced(addedTabId, removedTabId) {
-    delete watchlist[removedTabId];
-  });
-
-  chrome.tabs.onUpdated.addListener(function _onTabUpdated(tabId, info, tab) {
-    var isComplete = (info.status === 'complete');
-
-    if (isComplete) {
-      updateWatchlistDataFor(tab);
-    }
-  });
-
-  chrome.tabs.onActivated.addListener(function _onTabActivated(info) {
-    var tabId = info.tabId;
-
-    chrome.tabs.get(tabId, function(tab) {
-      updateWatchlistDataFor(tab);
-    });
-  });
-
-  chrome.contextMenus.onClicked.addListener(function _onContextMenuClicked(info, tab) {
-    var menuItemId = info.menuItemId || false;
-
-    if (menuItemId === 'feed-the-beast') {
-      var target = info.srcUrl;
-      var source = tab.url;
-
-      chrome.runtime.sendMessage({
-        incoming: {
-          target: target,
-          source: source
-        }
-      });
-
-      return;
-    }
-
-    if (menuItemId === 'toggle-timer') {
-      var tabId = tab.id;
-      var target = watchlist[tabId];
-
-      target.watch = info.checked;
-
-      updateBrowserActionFor(tabId);
-
-      return;
-    }
-  });
-
-  chrome.commands.onCommand.addListener(function(command) {
-    if (command === 'toggle_timer') {
-      chrome.tabs.query({
-        active: true,
-        currentWindow: true
-      }, function(tabs) {
-        if (! tabs.length) {
-          return;
-        }
-
-        var tabId = tabs[0].id;
-        var target = watchlist[tabId];
-
-        target.watch = !target.watch;
-
-        updateBrowserActionFor(tabId);
-
-        return;
-      });
-
-      return;
-    }
-  });
-
-  chrome.alarms.onAlarm.addListener(function() {
-    chrome.tabs.query({
-      active: true,
-      currentWindow: true
-    }, function(tabs) {
-      if (! tabs.length) {
-        return;
-      }
-
-      var tabId = tabs[0].id;
-
-      chrome.tabs.sendMessage(tabId, {
-        message: 'alarmfired'
-      });
-    });
-  });
-
-  chrome.browserAction.onClicked.addListener(function(tab) {
-    var tabId = tab.id;
-
-    chrome.tabs.sendMessage(tabId, {
-      message: 'alarmfired'
-    });
-  });
-
-  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    var incoming = request.incoming || false;
-
-    if (! incoming) {
-      return;
-    }
-
-    var target = incoming.target;
-
-    if (connected) {
-      socket.emit('incoming', target);
-    }
-
-    chrome.notifications.getPermissionLevel(function(permissionLevel) {
-      if (permissionLevel !== 'granted') {
-        return;
-      }
-
-      chrome.storage.sync.get('notify', function(options) {
-        var notify = options.notify;
-
-        if (! notify) {
-          return;
-        }
-
-        //http://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
-        var xhr = new XMLHttpRequest();
-
-        xhr.responseType = 'arraybuffer';
-        xhr.open('GET', target, true);
-
-        xhr.onload = function() {
-          var blob = new Blob([xhr.response], {
-            type: 'image/png'
-          });
-          var imageUrl = (window.URL || window.webkitURL).createObjectURL(blob);
-
-          if (! imageUrl) {
-            return;
-          }
-
-          var source = formatUrl(incoming.source);
-          var stamp = new Date().toTimeString().split(' ')[0];
-
+  xhr.send(options.data || '');
+};
+
+// Yeah, pyramid of doom
+const showNotification = (incoming, imageUrl) => {
+  // Check permissions
+  chrome.notifications.getPermissionLevel((permissionLevel) => {
+    // If notifications allowed
+    if (permissionLevel === 'granted') {
+      // Check notification preferences
+      chrome.storage.sync.get('notify', (options) => {
+        // If notifications desired
+        if (options.notify) {
           chrome.notifications.create({
             type: 'image',
             title: 'Cyclops',
-            iconUrl: 'img/icon48.png',
-            message: stamp + ' - ' + source,
-            contextMessage: '' + target,
-            imageUrl: imageUrl
+            iconUrl: 'img/blue/icon48.png',
+            message: `${getTimestamp()} - ${formatUrl(incoming.source)}`,
+            contextMessage: incoming.target,
+            imageUrl
           });
-        };
+        }
+      });
+    }
+  });
+};
 
-        xhr.send();
+// File new image requests
+const process = (request) => {
+  // The point of namespacing the messages in the first place
+  const incoming = request && request.cyclops;
+
+  // Naively tackling false alarms
+  if (incoming && incoming.target) {
+    sendRequest({
+      url: incoming.target,
+      responseType: 'arraybuffer'
+    }, (response) => {
+      // More: http://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
+      const data = new Blob([response]);
+
+      // Save the image
+      sendRequest({
+        method: 'PUT',
+        data
+      }, () => {
+        const imageUrl = getObjectUrl(data);
+
+        // Alert
+        showNotification(incoming, imageUrl);
       });
     });
+  }
+};
+
+// Push new tabs to the watchlist and sets icon and timers accordingly
+const refresh = (tab, checked) => {
+  // Get from watchlist or construct new, setting watch flag in the process
+  const entry = watchlist.get(tab.id) || {
+    url: tab.url,
+    checked
+  };
+
+  chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], (options) => {
+    const isEnabled = ![...options.blacklist, 'chrome://'].some(str => tab.url.indexOf(str) !== -1);
+
+    let isChecked = checked;
+
+    if (isChecked) {
+      isChecked = entry.checked;
+    }
+
+    if (isChecked === undefined && !options.freeze) {
+      isChecked = !options.freeze;
+    }
+
+    if (isEnabled && isChecked) {
+      chrome.alarms.create('@cyclops', {
+        periodInMinutes: options.rate
+      });
+    } else {
+      chrome.alarms.clearAll();
+    }
+
+    chrome.browserAction.setIcon({
+      path: isEnabled ? 'img/blue/icon19.png' : 'img/gray/icon19.png'
+    });
+
+    chrome.contextMenus.update('@cyclops-toggle-timer', {
+      enabled: isEnabled && !options.freeze,
+      checked: isEnabled && isChecked
+    });
+
+    // Finally update the tab entry in the watchlist
+    watchlist.set(tab.id, Object.assign(entry, { checked: isChecked }));
+  });
+};
+
+chrome.runtime.onMessage.addListener(process);
+
+// Setup context menus, reset options
+// Runs on load, reload, and after browser or extension updates
+chrome.runtime.onInstalled.addListener(() => {
+  // Available when right clicking on browser action
+  chrome.contextMenus.create({
+    id: '@cyclops-toggle-timer',
+    type: 'checkbox',
+    title: 'Run in background',
+    contexts: ['browser_action'],
+    checked: true
   });
 
-  function formatUrl(target) {
-    // remove protocol
-    var url = target.replace(/.*?:\/\//g, '');
-    // remove trailing slash from end of string
-    url = url.replace(/\/$/, '');
+  // Available when right clicking on top of images
+  chrome.contextMenus.create({
+    id: '@cyclops-sample',
+    type: 'normal',
+    title: 'Feed the beast',
+    contexts: ['image']
+  });
 
-    return url;
+  // Retrieve options from store
+  chrome.storage.sync.get(Object.keys(defaults), (options) => {
+    // No options in store, use defaults
+    chrome.storage.sync.set(Object.keys(options).length === 0 ? defaults : options);
+
+    // Touch watchlist
+    chrome.tabs.query({ active: true }, (tab) => {
+      refresh(tab[0]);
+    });
+  });
+});
+
+// Context menu management
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  // Which menu is this?
+  switch (info.menuItemId) {
+    case '@cyclops-toggle-timer':
+      // Update icon indicator for current tab, set watch flag
+      refresh(tab, info.checked);
+      break;
+    case '@cyclops-sample':
+      // Post the image
+      process({
+        cyclops: {
+          source: tab.url,
+          target: info.srcUrl
+        }
+      });
+      break;
+    default:
+      break;
   }
-})(window, document);
+});
+
+// Shortcut management
+chrome.commands.onCommand.addListener((command) => {
+  if (command === '@cyclops-toggle-timer') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      // Any tabs open?
+      if (tabs.length) {
+        // Update icon indicator for current tab, reverse watch flag
+        refresh(tabs[0], !watchlist.get(tabs[0].id).checked);
+      }
+    });
+  }
+});
+
+// Timer management
+chrome.alarms.onAlarm.addListener(() => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    // If multiple tabs are present
+    if (tabs.length) {
+      // Ask content script for a random image
+      chrome.tabs.sendMessage(tabs[0].id, {
+        message: '@cyclops/sample'
+      });
+    }
+  });
+});
+
+// Pick an image on each click
+chrome.browserAction.onClicked.addListener((tab) => {
+  chrome.tabs.sendMessage(tab.id, {
+    message: '@cyclops/sample'
+  });
+});
+
+// Reset watchlist if blacklist has changed
+chrome.storage.onChanged.addListener((changes) => {
+  // Start from scratch just in case
+  if (changes.blacklist) {
+    watchlist.clear();
+  }
+});
+
+// Tab management, remove from watchlist when,
+// 1. Tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+  watchlist.delete(tabId);
+});
+
+// 2. Tab is detached
+chrome.tabs.onDetached.addListener((tabId) => {
+  watchlist.delete(tabId);
+});
+
+// 3. Tab is replaced
+chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+  watchlist.delete(removedTabId);
+});
+
+// Track new tabs
+chrome.tabs.onCreated.addListener(refresh);
+
+// Track tab changes
+chrome.tabs.onHighlighted.addListener((info) => {
+  chrome.tabs.get(info.tabIds[0], refresh);
+});
+
+chrome.tabs.onActivated.addListener((info) => {
+  chrome.tabs.get(info.tabId, refresh);
+});
+
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status === 'complete' && tab.active) {
+    refresh(tab);
+  }
+});
+
+chrome.windows.onFocusChanged.addListener(() => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs.length) {
+      refresh(tabs[0]);
+    }
+  });
+});
+

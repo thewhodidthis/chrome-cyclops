@@ -2,38 +2,45 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Cyclops Options</title>
-
-    <link href="/css/options.css" rel="stylesheet">
+    <title>Cyclops options</title>
+    <link href="css/options.css" rel="stylesheet" />
   </head>
 
   <body>
     <form>
-      <label>
-        <input id="rate" type="number" min="1" max="20" step=".1" />
-        <span>Refresh rate
-          <br /><small>in minutes</small></span>
-      </label>
-
-      <label>
-        <textarea id="blacklist" placeholder="eg. mail.google." rows="8" wrap="off"></textarea>
-        <br /><small>Disable timer for these pages, one per line</small>
-      </label>
-
-      <label>
-        <input id="notify" type="checkbox" />
-        Enable notifications
-      </label>
-
-      <label>
-        <input id="freeze" type="checkbox" />
-        Disable timer
-      </label>
-
-      <input id="save" type="button" value="Save" />
-      <input id="reset" type="button" value="Reset" />
-
-      <span id="flash" class="flash"></span>
+      <div>
+        <label>
+          <input id="rate" type="number" min="1" max="20" step=".1" />
+          <span>Refresh rate <small>in minutes</small></span>
+        </label>
+      </div>
+      <div>
+        <label>
+          <textarea id="blacklist" placeholder="eg. mail.google." rows="8" wrap="off"></textarea>
+          <div>
+            <span>Disable timer for these pages <small>one per line</small></span>
+          </div>
+        </label>
+      </div>
+      <div>
+        <label>
+          <input id="notify" type="checkbox" />
+          <span>Enable notifications</span>
+        </label>
+      </div>
+      <div>
+        <label>
+          <input id="freeze" type="checkbox" />
+          <span>Disable timer</span>
+        </label>
+      </div>
+      <div>
+        <p>
+          <input id="save" type="button" value="Save" />
+          <input id="reset" type="button" value="Reset" />
+          <span id="flash" class="flash"></span>
+        </p>
+      </div>
     </form>
 
     <script src="/js/options.js"></script>

@@ -1,20 +1,20 @@
 {
   "name": "Cyclops",
-  "version": "0.0.1",
+  "short_name": "cyclops",
+  "version": "1.0.0",
   "manifest_version": 2,
-  "description": "Helps source images while browsing for use with cyclops 3D",
-  "homepage_url": "http:/www.cyclops.ws",
-  "minimum_chrome_version": "23",
+  "description": "Helps source images while browsing",
+  "homepage_url": "https://cyclops.ws",
+  "minimum_chrome_version": "49",
   "icons": {
-    "16": "img/icon16.png",
-    "19": "img/icon19.png",
-    "32": "img/icon32.png",
-    "48": "img/icon48.png",
-    "128": "img/icon128.png"
+    "16": "img/white/icon16.png",
+    "19": "img/blue/icon19.png",
+    "32": "img/blue/icon32.png",
+    "48": "img/blue/icon48.png",
+    "128": "img/blue/icon128.png"
   },
   "background": {
     "scripts": [
-      "js/vendor/socket.io/socket.io.js",
       "js/background.js"
     ],
     "persistent": false
@@ -35,9 +35,9 @@
     }
   ],
   "commands": {
-    "toggle_timer": {
+    "@cyclops-toggle-timer": {
       "suggested_key": {
-        "default": "Ctrl+Shift+J"
+        "default": "Ctrl+Shift+5"
       },
       "description": "Toggle timer"
     },
@@ -48,7 +48,7 @@
     }
   },
   "browser_action": {
-    "default_icon": "img/icon19.png"
+    "default_icon": "img/blue/icon19.png"
   },
   "permissions": [
     "tabs",

@@ -1,140 +1,99 @@
-(function(window, document, undefined) {
-  'use strict';
+((window, document) => {
+  // Id names for buttons and form formElements
+  const buttonIds = 'flash,reset,save'.split(',');
+  const optionIds = 'blacklist,freeze,notify,rate'.split(',');
 
-  //cache form elements
-  var $save = document.getElementById('save');
-  var $reset = document.getElementById('reset');
-  var $flash = document.getElementById('flash');
+  // Cache form elements
+  const formElements = buttonIds.concat(optionIds).reduce((obj, idx) => {
+    obj[idx] = document.getElementById(idx);
 
-  var $rate = document.getElementById('rate');
-  var $notify = document.getElementById('notify');
-  var $freeze = document.getElementById('freeze');
-  var $blacklist = document.getElementById('blacklist');
+    return obj;
+  }, {});
 
-  var createFlashMessage = function _createFlashMessage(msg) {
-    // set flash mesage, escaped on input
-    $flash.innerHTML = msg || '';
+  // Only matches domain like strings, borrowed from Feedly
+  const isUrl = url => (url.match(/^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/));
 
-    // clear out after a short while
-    setTimeout(function() {
-      $flash.textContent = '';
+  // Based on http://underscorejs.org/#escape
+  const escapeHtml = str => String(str)
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+    .replace(/\//g, '&#x2F;');
+
+  const parseUrls = (input) => {
+    // Cleanup blacklist
+    let output = escapeHtml(input).split(/\n/);
+
+    // Trim whitespace
+    output = output.map(url => url.trim());
+
+    // Remove empty lines
+    output = output.filter(url => url.length);
+
+    // Remove duplicates
+    output = output.filter((url, index, array) => array.indexOf(url) === index);
+
+    // Check for gobbledygooked list entries and just silently ignore those invalid
+    output = output.filter(url => isUrl(url));
+
+    return output;
+  };
+
+  const popMessage = (msg) => {
+    // Set flash mesage, escaped on input
+    formElements.flash.innerHTML = msg || '';
+
+    // Clear out after a short while
+    setTimeout(() => {
+      formElements.flash.textContent = '';
     }, 2000);
   };
 
-  var updateForm = function _updateForm(options) {
-    var options = options || {};
+  const getForm = () => {
+    const blacklist = parseUrls(formElements.blacklist.value);
+    const freeze = !!formElements.freeze.checked;
+    const notify = !!formElements.notify.checked;
+    const rate = Math.max(1, parseFloat(formElements.rate.value));
 
-    var sampleRate = options.rate || 1;
-    var wantsAlerts = options.notify || false;
-    var wantsFreeze = options.freeze || false;
-
-    var blacklistedUrls = options.blacklist || [];
-    var blacklistedUrlsText = '';
-
-    blacklistedUrls.forEach(function(url, idx, list) {
-      blacklistedUrlsText += url + "\n";
-    });
-
-    // set form inputs
-    $rate.value = sampleRate;
-    $notify.checked = wantsAlerts;
-    $freeze.checked = wantsFreeze;
-    $blacklist.value = blacklistedUrlsText;
+    return { blacklist, freeze, notify, rate };
   };
 
-  var getFormData = function _getFormData() {
-    var options = {};
+  // Update the form given a set of values for each setting
+  const setForm = (options) => {
+    formElements.rate.value = options.rate;
+    formElements.notify.checked = options.notify;
+    formElements.freeze.checked = options.freeze;
 
-    var sampleRate = parseFloat($rate.value);
-    var wantsAlerts = !!$notify.checked;
-    var wantsFreeze = !!$freeze.checked;
-    var blacklistedUrls = escapeHtml($blacklist.value).split(/\n/);
-
-    // cleanup
-    for (var i = 0, total = blacklistedUrls.length; i < total; i += 1) {
-      var target = blacklistedUrls[i];
-
-      // trim whitespace
-      if (target) {
-        blacklistedUrls[i] = target.trim();
-      }
-
-      // remove empty lines
-      if (target === '') {
-        blacklistedUrls.splice(i, 1);
-
-        i--;
-      }
-    }
-
-    // remove duplicates
-    blacklistedUrls = blacklistedUrls.filter(function(url, idx, list) {
-      return list.indexOf(url) === idx;
-    });
-
-    // check for gobbledygooked list entries
-    for (var i = 0, total = blacklistedUrls.length; i < total; i += 1) {
-      var target = blacklistedUrls[i];
-
-      if (! isUrlValid(target)) {
-        if (target.length > 8) {
-          target = '<span>' + target.substring(0, 8) + '</span>&hellip;';
-        } else {
-          target = '<span>' + target + '</span>';
-        }
-
-        createFlashMessage('Sorry, ' + target + ' looks fishy!');
-
-        return false;
-      }
-    }
-
-    options.rate = sampleRate;
-    options.notify = wantsAlerts;
-    options.freeze = wantsFreeze;
-    options.blacklist = blacklistedUrls;
-
-    return options;
+    // Parse blacklist array into line separated strings
+    formElements.blacklist.value = options.blacklist.reduce((a, b) => (a.length ? `${a}\n${b}` : b), '');
   };
 
-  // on show: update form, attach button handlers
-  chrome.storage.sync.get(['rate', 'notify', 'freeze', 'blacklist'], function(options) {
-    $save.addEventListener('click', function(e) {
-      var options = getFormData();
+  chrome.storage.sync.get(optionIds, (options) => {
+    // Update form with options got
+    setForm(options);
 
-      if (options) {
-        chrome.storage.sync.set(options, function() {
-          updateForm(options);
+    // Hit the reset button to revert form to previous settings
+    formElements.reset.addEventListener('click', () => {
+      // Or use defaults?
+      setForm(options);
 
-          createFlashMessage('Options saved!');
-        });
-      }
+      // Show a brief message
+      popMessage('Options reset, hit save to apply!');
     });
 
-    $reset.addEventListener('click', function(e) {
-      updateForm(options);
+    // Click save to store the options, update the form if successful
+    formElements.save.addEventListener('click', () => {
+      const settings = getForm();
 
-      createFlashMessage('Options reset, hit save to apply!');
+      chrome.storage.sync.set(settings, () => {
+        // Success, let the form reflect the changed options
+        setForm(settings);
+
+        // Show a brief message
+        popMessage('Options saved!');
+      });
     });
-
-    updateForm(options);
   });
-
-  // only matches domain like strings, borrowed from Feedly
-  function isUrlValid(url) {
-    var reg = new RegExp(/^((?:(?:(?:\w[\.\-\+]?)*)\w)+)((?:(?:(?:\w[\.\-\+]?){0,62})\w)+)\.(\w{2,6})$/);
-
-    return url.match(reg);
-  }
-
-  // based on http://underscorejs.org/#escape
-  function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;")
-        .replace(/\//g, "&#x2F;");
-  }
 })(window, document);
