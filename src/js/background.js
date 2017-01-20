@@ -3,8 +3,8 @@ const defaults = {
   // Alert how fast
   rate: 1,
 
-  // Host url
-  host: 'http://localhost:8022/io' || 'https://api.cyclops.ws',
+  // Host url, just use localhost for now
+  host: ('update_url' in chrome.runtime.getManifest()) ? 'https://cyclops.ws/io' : 'http://localhost:8022/io',
 
   // Enabled
   freeze: false,
@@ -28,13 +28,12 @@ const watchlist = new Map();
 
 // Listing following methods from the more generic to the more project specific
 const getTimestamp = () => new Date().toTimeString().split(' ')[0];
-const getObjectUrl = data => (window.URL || window.webkitURL).createObjectURL(data);
 
 // Clean up image urls, remove protocol, remove trailing slash from end of string
-const formatUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '');
+const getUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '');
 
 // For now, a super simple xhr wrapper to help with the network requests
-// TODO: Attempt using fetch or web workersi when the server script is done at some point?
+// TODO: Use fetch or web workers when the server script is done at some point?
 const sendRequest = (options, callback) => {
   const xhr = new XMLHttpRequest();
   const url = options.url || defaults.host;
@@ -49,6 +48,7 @@ const sendRequest = (options, callback) => {
     xhr.open('GET', url, true);
   }
 
+  // TODO: Where is my error checking?
   xhr.onload = () => {
     callback(xhr.response);
   };
@@ -70,7 +70,7 @@ const showNotification = (incoming, imageUrl) => {
             type: 'image',
             title: 'Cyclops',
             iconUrl: 'img/blue/icon48.png',
-            message: `${getTimestamp()} - ${formatUrl(incoming.source)}`,
+            message: `${getTimestamp()} - ${getUrl(incoming.source)}`,
             contextMessage: incoming.target,
             imageUrl
           });
@@ -82,8 +82,7 @@ const showNotification = (incoming, imageUrl) => {
 
 // File new image requests
 const process = (request) => {
-  // The point of namespacing the messages in the first place
-  const incoming = request && request.cyclops;
+  const incoming = request.cyclops;
 
   // Naively tackling false alarms
   if (incoming && incoming.target) {
@@ -93,16 +92,15 @@ const process = (request) => {
     }, (response) => {
       // More: http://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
       const data = new Blob([response]);
+      const dataUrl = window.URL.createObjectURL(data);
 
       // Save the image
       sendRequest({
         method: 'PUT',
         data
       }, () => {
-        const imageUrl = getObjectUrl(data);
-
         // Alert
-        showNotification(incoming, imageUrl);
+        showNotification(incoming, dataUrl);
       });
     });
   }
@@ -117,17 +115,9 @@ const refresh = (tab, checked) => {
   };
 
   chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], (options) => {
+    const isDefined = check => check !== undefined;
     const isEnabled = ![...options.blacklist, 'chrome://'].some(str => tab.url.indexOf(str) !== -1);
-
-    let isChecked = checked;
-
-    if (isChecked) {
-      isChecked = entry.checked;
-    }
-
-    if (isChecked === undefined && !options.freeze) {
-      isChecked = !options.freeze;
-    }
+    const isChecked = isDefined(checked) ? checked : isDefined(entry.checked) ? entry.checked : !options.freeze;
 
     if (isEnabled && isChecked) {
       chrome.alarms.create('@cyclops', {
@@ -143,7 +133,7 @@ const refresh = (tab, checked) => {
 
     chrome.contextMenus.update('@cyclops-toggle-timer', {
       enabled: isEnabled && !options.freeze,
-      checked: isEnabled && isChecked
+      checked: isChecked && !options.freeze
     });
 
     // Finally update the tab entry in the watchlist
@@ -162,7 +152,7 @@ chrome.runtime.onInstalled.addListener(() => {
     type: 'checkbox',
     title: 'Run in background',
     contexts: ['browser_action'],
-    checked: true
+    checked: false
   });
 
   // Available when right clicking on top of images
@@ -180,6 +170,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
     // Touch watchlist
     chrome.tabs.query({ active: true }, (tab) => {
+      // Update accordingly
       refresh(tab[0]);
     });
   });
@@ -190,7 +181,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   // Which menu is this?
   switch (info.menuItemId) {
     case '@cyclops-toggle-timer':
-      // Update icon indicator for current tab, set watch flag
       refresh(tab, info.checked);
       break;
     case '@cyclops-sample':
@@ -213,7 +203,6 @@ chrome.commands.onCommand.addListener((command) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       // Any tabs open?
       if (tabs.length) {
-        // Update icon indicator for current tab, reverse watch flag
         refresh(tabs[0], !watchlist.get(tabs[0].id).checked);
       }
     });
@@ -268,10 +257,6 @@ chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
 chrome.tabs.onCreated.addListener(refresh);
 
 // Track tab changes
-chrome.tabs.onHighlighted.addListener((info) => {
-  chrome.tabs.get(info.tabIds[0], refresh);
-});
-
 chrome.tabs.onActivated.addListener((info) => {
   chrome.tabs.get(info.tabId, refresh);
 });
