@@ -82,6 +82,7 @@ const showNotification = (incoming, imageUrl) => {
 
 // File new image requests
 const process = (request) => {
+  // TODO: Condense
   const incoming = request.cyclops;
 
   // Naively tackling false alarms
@@ -237,7 +238,30 @@ chrome.storage.onChanged.addListener((changes) => {
   }
 });
 
-// Tab management, remove from watchlist when,
+// Tab management
+// Track tab changes
+chrome.windows.onFocusChanged.addListener(() => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs.length) {
+      refresh(tabs[0]);
+    }
+  });
+});
+
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status === 'complete' && tab.active) {
+    refresh(tab);
+  }
+});
+
+chrome.tabs.onActivated.addListener((info) => {
+  chrome.tabs.get(info.tabId, refresh);
+});
+
+// Track new tabs
+chrome.tabs.onCreated.addListener(refresh);
+
+// Remove from watchlist when,
 // 1. Tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
   watchlist.delete(tabId);
@@ -251,27 +275,5 @@ chrome.tabs.onDetached.addListener((tabId) => {
 // 3. Tab is replaced
 chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
   watchlist.delete(removedTabId);
-});
-
-// Track new tabs
-chrome.tabs.onCreated.addListener(refresh);
-
-// Track tab changes
-chrome.tabs.onActivated.addListener((info) => {
-  chrome.tabs.get(info.tabId, refresh);
-});
-
-chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (info.status === 'complete' && tab.active) {
-    refresh(tab);
-  }
-});
-
-chrome.windows.onFocusChanged.addListener(() => {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs.length) {
-      refresh(tabs[0]);
-    }
-  });
 });
 
