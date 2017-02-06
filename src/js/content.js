@@ -1,35 +1,14 @@
 ((window, document) => {
-  // Store images to choose from
-  // Could this be a map containing images and seeds?
-  let seeds = [];
-
   // Convert node list into array
-  // More: http://stackoverflow.com/questions/2735067/how-to-convert-a-dom-node-list-to-an-array-in-javascript
+  // http://stackoverflow.com/questions/2735067/how-to-convert-a-dom-node-list-to-an-array-in-javascript
   const $$ = elements => Array.from(elements);
 
-  // Dedupe
-  // From: http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
+  // For removing duplicates
+  // http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
   const uniq = a => [...new Set(a)];
 
-  // Return a random image and adjust the image array accordingly
-  // TODO: This is not perfect yet
-  const getSeed = (max) => {
-    // Refill unique seeds array if empty the es6 way
-    // More: http://stackoverflow.com/questions/3746725/create-a-javascript-array-containing-1-n
-    // seeds = seeds.length ? seeds : [...Array(max).keys()];
-    seeds = (seeds.length && seeds.length >= max) ? seeds : [...Array(max).keys()];
-
-    // Index between 0 and max
-    const idx = Math.floor(Math.random() * max);
-
-    // The image source
-    const val = seeds[idx];
-
-    // Remove once seed acquired
-    seeds.splice(idx, 1);
-
-    return val;
-  };
+  // Return a random entry and adjust input accordingly
+  const getRandom = (seeds = []) => seeds.splice(Math.floor(Math.random() * seeds.length), 1)[0];
 
   // Exclude common cases of impossible imgs
   const getImages = (host = document) => {
@@ -50,24 +29,9 @@
     return output;
   };
 
-  const images = getImages();
-
-  // Fired at rate if timer set
-  chrome.runtime.onMessage.addListener((request) => {
-    // Skip if no images pass the checks or request looks foreign
-    if (images && images.length > 1 && request.message === '@cyclops/sample') {
-      // Tell the background script
-      chrome.runtime.sendMessage({
-        cyclops: {
-          target: images[getSeed(images.length)],
-          source: location.hostname
-        }
-      });
-    }
-  });
-
   // Dig deeper image gathering operations :)
   window.addEventListener('load', () => {
+    const images = getImages();
     const iframes = $$(document.getElementsByTagName('iframe'));
 
     // Refresh image list
@@ -75,9 +39,32 @@
       // Useful with tumblr photosets
       iframes
         // Avoid cross origin issues, include same domain iframes only
-        .filter(i => i.src.indexOf(location.origin) === 0)
+        .filter(iframe => iframe.src.indexOf(location.origin) === 0)
         // Get the images inside of the iframes on the page, but only if they pass the checks
         .forEach(iframe => images.push(...getImages(iframe.contentDocument)));
     }
+
+    // Store image indices to choose from
+    let seeds = [];
+
+    // Fired at rate if timer set
+    chrome.runtime.onMessage.addListener((request) => {
+      // Skip if no images pass the checks or request looks foreign
+      if (images && images.length >= 1 && request.message === '@cyclops/sample') {
+        // Reset seeds array if empty
+        // http://stackoverflow.com/questions/3746725/create-a-javascript-array-containing-1-n
+        if (seeds.length === 0) {
+          seeds = [...Array(images.length).keys()];
+        }
+
+        // Let the background script know
+        chrome.runtime.sendMessage({
+          cyclops: {
+            target: images[getRandom(seeds)],
+            source: location.hostname,
+          },
+        });
+      }
+    });
   });
 })(window, document);
