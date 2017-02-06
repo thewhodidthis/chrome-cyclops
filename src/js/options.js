@@ -1,14 +1,14 @@
 ((window, document) => {
-  // Id names for buttons and form formElements
+  // Id selectors for buttons and form elements
   const buttonIds = 'flash,reset,save'.split(',');
   const optionIds = 'blacklist,freeze,notify,rate'.split(',');
 
   // Cache form elements
-  const formElements = buttonIds.concat(optionIds).reduce((obj, idx) => {
-    obj[idx] = document.getElementById(idx);
-
-    return obj;
-  }, {});
+  const formElements = buttonIds
+    .concat(optionIds)
+    .reduce((obj, idx) => Object.assign(obj, {
+      [idx]: document.getElementById(idx),
+    }), {});
 
   // Only matches domain like strings, borrowed from Feedly
   const isUrl = url => (url.match(/^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/));
@@ -32,7 +32,7 @@
     // Remove empty lines
     output = output.filter(url => url.length);
 
-    // Remove duplicates
+    // Dedupe
     output = output.filter((url, index, array) => array.indexOf(url) === index);
 
     // Check for gobbledygooked list entries and just silently ignore those invalid
@@ -55,6 +55,8 @@
     const blacklist = parseUrls(formElements.blacklist.value);
     const freeze = !!formElements.freeze.checked;
     const notify = !!formElements.notify.checked;
+
+    // Minimum timer rate allowed is one minute
     const rate = Math.max(1, parseFloat(formElements.rate.value));
 
     return { blacklist, freeze, notify, rate };
