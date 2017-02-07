@@ -3,7 +3,7 @@
   const buttonIds = 'flash,reset,save'.split(',');
   const optionIds = 'blacklist,freeze,notify,rate'.split(',');
 
-  // Cache form elements
+  // Turn above into key value pairs for future reference
   const formElements = buttonIds
     .concat(optionIds)
     .reduce((obj, idx) => Object.assign(obj, {
@@ -22,8 +22,8 @@
     .replace(/'/g, '&#039;')
     .replace(/\//g, '&#x2F;');
 
+  // Cleanup blacklisted urls
   const parseUrls = (input) => {
-    // Cleanup blacklist
     let output = escapeHtml(input).split(/\n/);
 
     // Trim whitespace
@@ -56,7 +56,7 @@
     const freeze = !!formElements.freeze.checked;
     const notify = !!formElements.notify.checked;
 
-    // Minimum timer rate allowed is one minute
+    // Timer rate allowed no less than a minute
     const rate = Math.max(1, parseFloat(formElements.rate.value));
 
     return { blacklist, freeze, notify, rate };
@@ -78,7 +78,7 @@
 
     // Hit the reset button to revert form to previous settings
     formElements.reset.addEventListener('click', () => {
-      // Or use defaults?
+      // Reset from storage
       setForm(options);
 
       // Show a brief message
@@ -90,7 +90,7 @@
       const settings = getForm();
 
       chrome.storage.sync.set(settings, () => {
-        // Success, let the form reflect the changed options
+        // Success, let the form reflect the changes
         setForm(settings);
 
         // Show a brief message
