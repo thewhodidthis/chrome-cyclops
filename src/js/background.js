@@ -1,140 +1,135 @@
-// Default settings
-const defaults = {
+// Defaults
+const settings = {
   // Alert how fast
   rate: 1,
 
   // Host url, just use localhost for now
   host: ('update_url' in chrome.runtime.getManifest()) ? 'https://cyclops.ws/io' : 'http://localhost:8022/io',
 
-  // Enabled
+  // Timer off
   freeze: false,
 
   // Wants notifications
   notify: false,
 
-  // Excludes
+  // Disable when visiting these pages
   blacklist: [
     'localhost',
     'cyclops.ws',
     'mail.yahoo.com',
     'mail.google.com',
-    'docs.google.com'
-  ]
+    'docs.google.com',
+  ],
 };
 
-// Tabs currently being watched
-// Maps are available Chrome v38 onwards according to MDN
+// Tabs currently being watched, Chrome v38 onwards
 const watchlist = new Map();
 
-// Listing following methods from the more generic to the more project specific
+// Format curren time
 const getTimestamp = () => new Date().toTimeString().split(' ')[0];
 
 // Clean up image urls, remove protocol, remove trailing slash from end of string
 const getUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '');
 
-// For now, a super simple xhr wrapper to help with the network requests
-// TODO: Use fetch or web workers when the server script is done at some point?
-const sendRequest = (options, callback) => {
-  const xhr = new XMLHttpRequest();
-  const url = options.url || defaults.host;
-
-  if (options.responseType) {
-    xhr.responseType = options.responseType;
+// Check response status
+const getStatus = (response) => {
+  // Success (POST, PUT)
+  if (response.status >= 200 && response.status < 300) {
+    return Promise.resolve(response);
   }
 
-  if (options.method === 'PUT') {
-    xhr.open('PUT', url);
-  } else {
-    xhr.open('GET', url, true);
-  }
-
-  // TODO: Where is my error checking?
-  xhr.onload = () => {
-    callback(xhr.response);
-  };
-
-  xhr.send(options.data || '');
+  // Errors
+  return Promise.reject(new Error(`${response.status} / ${response.statusText}`));
 };
 
-// Yeah, pyramid of doom
-const showNotification = (incoming, imageUrl) => {
-  // Check permissions
-  chrome.notifications.getPermissionLevel((permissionLevel) => {
-    // If notifications allowed
-    if (permissionLevel === 'granted') {
-      // Check notification preferences
-      chrome.storage.sync.get('notify', (options) => {
-        // If notifications desired
-        if (options.notify) {
-          chrome.notifications.create({
-            type: 'image',
-            title: 'Cyclops',
-            iconUrl: 'img/blue/icon48.png',
-            message: `${getTimestamp()} - ${getUrl(incoming.source)}`,
-            contextMessage: incoming.target,
-            imageUrl
-          });
-        }
-      });
+// Read response data into an array buffer
+const getBuffer = input => input.arrayBuffer();
+
+// Notify
+const popNotice = (details) => {
+  // Check notification preferences
+  chrome.storage.sync.get('notify', (options) => {
+    // If notifications desired
+    if (options.notify) {
+      const notice = Object.assign({
+        type: 'basic',
+        title: 'Cyclops',
+        iconUrl: 'img/blue/icon48.png',
+      }, details);
+
+      chrome.notifications.create(notice, notificationId => notificationId);
     }
   });
 };
 
 // File new image requests
-const process = (request) => {
-  // TODO: Condense
-  const incoming = request.cyclops;
+const process = (message) => {
+  const source = message && message.source;
+  const target = message && message.target;
 
-  // Naively tackling false alarms
-  if (incoming && incoming.target) {
-    sendRequest({
-      url: incoming.target,
-      responseType: 'arraybuffer'
-    }, (response) => {
-      // More: http://stackoverflow.com/questions/20035615/using-raw-image-data-from-ajax-request-for-data-uri
-      const data = new Blob([response]);
-      const dataUrl = window.URL.createObjectURL(data);
+  // False alarm, need both
+  if (!source || !target) {
+    return;
+  }
 
-      // Save the image
-      sendRequest({
-        method: 'PUT',
-        data
-      }, () => {
-        // Alert
-        showNotification(incoming, dataUrl);
+  fetch(target)
+    .then(getStatus)
+    .then(getBuffer)
+    .then(arrayBuffer => fetch(settings.host, {
+      method: 'PUT',
+      body: arrayBuffer,
+    }).then(getStatus).then(() => {
+      // Image type notifications accept blob urls
+      const blob = new Blob([arrayBuffer]);
+      const imageUrl = window.URL.createObjectURL(blob);
+
+      popNotice({
+        type: 'image',
+        imageUrl,
+        message: `${getTimestamp()} - ${getUrl(source)}`,
+        contextMessage: target,
+      });
+    }))
+    .catch((error) => {
+      // Show errors
+      popNotice({
+        message: `${getTimestamp()} - ${error.message}`,
+        // Just as little something extra
+        contextMessage: (error.name === 'Error') ? target : settings.host,
       });
     });
-  }
 };
 
-// Push new tabs to the watchlist and sets icon and timers accordingly
+// Push new tabs to the watchlist, set icon and timers accordingly
 const refresh = (tab, checked) => {
-  // Get from watchlist or construct new, setting watch flag in the process
+  // Get from watchlist or create setting watch flag in the process
   const entry = watchlist.get(tab.id) || {
+    checked,
     url: tab.url,
-    checked
   };
 
   chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], (options) => {
     const isDefined = check => check !== undefined;
     const isEnabled = ![...options.blacklist, 'chrome://'].some(str => tab.url.indexOf(str) !== -1);
-    const isChecked = isDefined(checked) ? checked : isDefined(entry.checked) ? entry.checked : !options.freeze;
+    const isChecked = isDefined(checked)
+      ? checked
+      : (isDefined(entry.checked) && entry.checked) || !options.freeze;
 
     if (isEnabled && isChecked) {
       chrome.alarms.create('@cyclops', {
-        periodInMinutes: options.rate
+        periodInMinutes: options.rate,
       });
     } else {
       chrome.alarms.clearAll();
     }
 
     chrome.browserAction.setIcon({
-      path: isEnabled ? 'img/blue/icon19.png' : 'img/gray/icon19.png'
+      path: isEnabled ? 'img/blue/icon19.png' : 'img/gray/icon19.png',
     });
 
     chrome.contextMenus.update('@cyclops-toggle-timer', {
       enabled: isEnabled && !options.freeze,
-      checked: isChecked && !options.freeze
+      checked: isChecked && !options.freeze,
     });
 
     // Finally update the tab entry in the watchlist
@@ -153,7 +148,7 @@ chrome.runtime.onInstalled.addListener(() => {
     type: 'checkbox',
     title: 'Run in background',
     contexts: ['browser_action'],
-    checked: false
+    checked: false,
   });
 
   // Available when right clicking on top of images
@@ -161,17 +156,16 @@ chrome.runtime.onInstalled.addListener(() => {
     id: '@cyclops-sample',
     type: 'normal',
     title: 'Feed the beast',
-    contexts: ['image']
+    contexts: ['image'],
   });
 
   // Retrieve options from store
-  chrome.storage.sync.get(Object.keys(defaults), (options) => {
+  chrome.storage.sync.get(Object.keys(settings), (options) => {
     // No options in store, use defaults
-    chrome.storage.sync.set(Object.keys(options).length === 0 ? defaults : options);
+    chrome.storage.sync.set(Object.keys(options).length === 0 ? settings : options);
 
     // Touch watchlist
     chrome.tabs.query({ active: true }, (tab) => {
-      // Update accordingly
       refresh(tab[0]);
     });
   });
@@ -187,14 +181,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
     case '@cyclops-sample':
       // Post the image
       process({
-        cyclops: {
-          source: tab.url,
-          target: info.srcUrl
-        }
+        source: tab.url,
+        target: info.srcUrl,
       });
       break;
     default:
-      break;
   }
 });
 
@@ -217,16 +208,16 @@ chrome.alarms.onAlarm.addListener(() => {
     if (tabs.length) {
       // Ask content script for a random image
       chrome.tabs.sendMessage(tabs[0].id, {
-        message: '@cyclops/sample'
+        message: '@cyclops/sample',
       });
     }
   });
 });
 
-// Pick an image on each click
+// Pick an image on click
 chrome.browserAction.onClicked.addListener((tab) => {
   chrome.tabs.sendMessage(tab.id, {
-    message: '@cyclops/sample'
+    message: '@cyclops/sample',
   });
 });
 
