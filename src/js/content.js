@@ -3,12 +3,12 @@
   // http://stackoverflow.com/questions/2735067/how-to-convert-a-dom-node-list-to-an-array-in-javascript
   const $$ = elements => Array.from(elements);
 
-  // For removing duplicates
+  // Remove duplicates from array
   // http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
-  const uniq = a => [...new Set(a)];
+  const getUnique = (array = []) => [...new Set(array)];
 
-  // Return a random entry and adjust input accordingly
-  const getRandom = (seeds = []) => seeds.splice(Math.floor(Math.random() * seeds.length), 1)[0];
+  // Pop a random entry in array
+  const getRandom = (array = []) => array.splice(Math.floor(Math.random() * array.length), 1)[0];
 
   // Exclude common cases of impossible imgs
   const getImages = (host = document) => {
@@ -24,19 +24,18 @@
     output = output.map(img => img.src);
 
     // Dedupe
-    output = uniq(output);
+    output = getUnique(output);
 
     return output;
   };
 
-  // Dig deeper image gathering operations :)
   window.addEventListener('load', () => {
     const images = getImages();
     const iframes = $$(document.getElementsByTagName('iframe'));
 
-    // Refresh image list
+    // Dig deeper image gathering operations :)
     if (iframes.length) {
-      // Useful with tumblr photosets
+      // Refresh image list, useful with tumblr photosets
       iframes
         // Avoid cross origin issues, include same domain iframes only
         .filter(iframe => iframe.src.indexOf(location.origin) === 0)
@@ -57,12 +56,10 @@
           seeds = [...Array(images.length).keys()];
         }
 
-        // Let the background script know
+        // Let the background script know of the image chosen
         chrome.runtime.sendMessage({
-          cyclops: {
-            target: images[getRandom(seeds)],
-            source: location.hostname,
-          },
+          source: location.hostname,
+          target: images[getRandom(seeds)],
         });
       }
     });
