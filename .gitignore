@@ -1,6 +1,7 @@
 .DS_Store
 
 dist/
+other/
 node_modules/
 bower_components/
 
@@ -8,6 +9,4 @@ bower_components/
 *.pem
 *.zip
 *.log
-*.pdf
-*.idraw
 
