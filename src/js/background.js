@@ -76,9 +76,11 @@ const process = (message) => {
     .then(getStatus)
     .then(getBuffer)
     .then(arrayBuffer => fetch(settings.host, {
-      method: 'PUT',
       body: arrayBuffer,
-    }).then(getStatus).then(() => {
+      method: 'PUT',
+    })
+    .then(getStatus)
+    .then(() => {
       // Image type notifications accept blob urls
       const blob = new Blob([arrayBuffer]);
       const imageUrl = window.URL.createObjectURL(blob);
@@ -94,6 +96,7 @@ const process = (message) => {
       // Show errors
       popNotice({
         message: `${getTimestamp()} - ${error.message}`,
+
         // Just as little something extra
         contextMessage: (error.name === 'Error') ? target : settings.host,
       });
