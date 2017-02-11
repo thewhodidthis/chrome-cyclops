@@ -1,12 +1,9 @@
 .DS_Store
-
-dist/
-other/
-node_modules/
-bower_components/
-
 *.crx
 *.pem
 *.zip
 *.log
+*.idraw
+node_modules/
+dist/
 
