@@ -1,10 +1,10 @@
 // Defaults
 const settings = {
-  // Alert how fast
-  rate: 1,
-
   // Host url, just use localhost for now
   host: ('update_url' in chrome.runtime.getManifest()) ? 'https://cyclops.ws/io' : 'http://localhost:8022/io',
+
+  // Auto refresh how often
+  rate: 1,
 
   // Timer off
   freeze: false,
@@ -20,9 +20,33 @@ const settings = {
     'mail.google.com',
     'docs.google.com',
   ],
+
+  // Notification defaults
+  notification: {
+    type: 'basic',
+    title: 'Cyclops',
+    iconUrl: 'img/small/black/icon48.png',
+  },
+
+  // Ref menus post create
+  contextMenus: [
+    {
+      id: '@cyclops-sample',
+      type: 'normal',
+      title: 'Feed the beast',
+      contexts: ['image'],
+    },
+    {
+      id: '@cyclops-toggle-timer',
+      type: 'checkbox',
+      title: 'Run in background',
+      contexts: ['browser_action'],
+      checked: false,
+    },
+  ],
 };
 
-// Tabs currently being watched, Chrome v38 onwards
+// Tabs on watch, Chrome v38 onwards
 const watchlist = new Map();
 
 // Format curren time
@@ -33,7 +57,7 @@ const getUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '');
 
 // Check response status
 const getStatus = (response) => {
-  // Success (POST, PUT)
+  // Success
   if (response.status >= 200 && response.status < 300) {
     return Promise.resolve(response);
   }
@@ -51,11 +75,7 @@ const popNotice = (details) => {
   chrome.storage.sync.get('notify', (options) => {
     // If notifications desired
     if (options.notify) {
-      const notice = Object.assign({
-        type: 'basic',
-        title: 'Cyclops',
-        iconUrl: 'img/blue/icon48.png',
-      }, details);
+      const notice = Object.assign({}, settings.notification, details);
 
       chrome.notifications.create(notice, notificationId => notificationId);
     }
@@ -96,15 +116,13 @@ const process = (message) => {
       // Show errors
       popNotice({
         message: `${getTimestamp()} - ${error.message}`,
-
-        // Just as little something extra
         contextMessage: (error.name === 'Error') ? target : settings.host,
       });
     });
 };
 
 // Push new tabs to the watchlist, set icon and timers accordingly
-const refresh = (tab, checked) => {
+const refresh = (tab = { url: '' }, checked) => {
   // Get from watchlist or create setting watch flag in the process
   const entry = watchlist.get(tab.id) || {
     checked,
@@ -116,24 +134,27 @@ const refresh = (tab, checked) => {
     const isEnabled = ![...options.blacklist, 'chrome://'].some(str => tab.url.indexOf(str) !== -1);
     const isChecked = isDefined(checked)
       ? checked
-      : (isDefined(entry.checked) && entry.checked) || !options.freeze;
+      : isDefined(entry.checked) && entry.checked;
+    const wantsTimer = isEnabled && isChecked && !options.freeze;
 
-    if (isEnabled && isChecked) {
+    if (wantsTimer) {
+      chrome.browserAction.setIcon({ path: 'img/large/black/icon19.png' });
       chrome.alarms.create('@cyclops', {
         periodInMinutes: options.rate,
       });
     } else {
+      chrome.browserAction.setIcon({
+        path: isEnabled ? 'img/small/black/icon19.png' : 'img/small/gray/icon19.png',
+      });
       chrome.alarms.clearAll();
     }
 
-    chrome.browserAction.setIcon({
-      path: isEnabled ? 'img/blue/icon19.png' : 'img/gray/icon19.png',
-    });
-
-    chrome.contextMenus.update('@cyclops-toggle-timer', {
-      enabled: isEnabled && !options.freeze,
-      checked: isChecked && !options.freeze,
-    });
+    if (settings.contextMenus.indexOf('@cyclops-toggle-timer') > -1) {
+      chrome.contextMenus.update('@cyclops-toggle-timer', {
+        enabled: isEnabled && !options.freeze,
+        checked: wantsTimer,
+      });
+    }
 
     // Finally update the tab entry in the watchlist
     watchlist.set(tab.id, Object.assign(entry, { checked: isChecked }));
@@ -142,24 +163,12 @@ const refresh = (tab, checked) => {
 
 chrome.runtime.onMessage.addListener(process);
 
-// Setup context menus, reset options
 // Runs on load, reload, and after browser or extension updates
 chrome.runtime.onInstalled.addListener(() => {
-  // Available when right clicking on browser action
-  chrome.contextMenus.create({
-    id: '@cyclops-toggle-timer',
-    type: 'checkbox',
-    title: 'Run in background',
-    contexts: ['browser_action'],
-    checked: false,
-  });
-
-  // Available when right clicking on top of images
-  chrome.contextMenus.create({
-    id: '@cyclops-sample',
-    type: 'normal',
-    title: 'Feed the beast',
-    contexts: ['image'],
+  // Setup context menus
+  chrome.contextMenus.removeAll(() => {
+    // Save ids
+    settings.contextMenus = settings.contextMenus.map(props => chrome.contextMenus.create(props));
   });
 
   // Retrieve options from store
