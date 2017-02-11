@@ -16,7 +16,7 @@
     "lint:css": "csslint src/css/*.css --format=compact",
     "start": "npm run build",
     "prebuild": "mkdir -p dist",
-    "build": "cd src && zip ../dist/chrome-cyclops.zip -r . -x *.DS_Store"
+    "build": "cd src && zip ../dist/chrome-cyclops.zip -r . -x *.DS_Store -x *.idraw"
   },
   "devDependencies": {
     "eslint": "latest",
