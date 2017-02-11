@@ -7,11 +7,11 @@
   "homepage_url": "https://cyclops.ws",
   "minimum_chrome_version": "49",
   "icons": {
-    "16": "img/small/orange/icon16.png",
-    "19": "img/small/gray/icon19.png",
-    "32": "img/small/black/icon32.png",
-    "48": "img/small/black/icon48.png",
-    "128": "img/small/black/icon128.png"
+    "16": "img/icon16.png",
+    "19": "img/icon19.png",
+    "32": "img/icon32.png",
+    "48": "img/icon48.png",
+    "128": "img/icon128.png"
   },
   "background": {
     "scripts": [
@@ -48,7 +48,7 @@
     }
   },
   "browser_action": {
-    "default_icon": "img/small/gray/icon19.png"
+    "default_icon": "img/icon19-lo.png"
   },
   "permissions": [
     "tabs",

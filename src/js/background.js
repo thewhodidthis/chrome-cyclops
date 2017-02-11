@@ -25,7 +25,7 @@ const settings = {
   notification: {
     type: 'basic',
     title: 'Cyclops',
-    iconUrl: 'img/small/black/icon48.png',
+    iconUrl: 'img/icon48.png',
   },
 
   // Ref menus post create
@@ -138,13 +138,13 @@ const refresh = (tab = { url: '' }, checked) => {
     const wantsTimer = isEnabled && isChecked && !options.freeze;
 
     if (wantsTimer) {
-      chrome.browserAction.setIcon({ path: 'img/large/black/icon19.png' });
+      chrome.browserAction.setIcon({ path: 'img/icon19-hi.png' });
       chrome.alarms.create('@cyclops', {
         periodInMinutes: options.rate,
       });
     } else {
       chrome.browserAction.setIcon({
-        path: isEnabled ? 'img/small/black/icon19.png' : 'img/small/gray/icon19.png',
+        path: isEnabled ? 'img/icon19.png' : 'img/icon19-lo.png',
       });
       chrome.alarms.clearAll();
     }
