@@ -1,4 +1,4 @@
-// Defaults
+// Config
 const settings = {
   // Host url, just use localhost for now
   host: ('update_url' in chrome.runtime.getManifest()) ? 'https://cyclops.ws/io' : 'http://localhost:8022/io',
@@ -22,7 +22,7 @@ const settings = {
   ],
 
   // Notification defaults
-  notification: {
+  notice: {
     type: 'basic',
     title: 'Cyclops',
     iconUrl: 'img/icon48.png',
@@ -52,6 +52,12 @@ const watchlist = new Map();
 // Format curren time
 const getTimestamp = () => new Date().toTimeString().split(' ')[0];
 
+// Prefix timestamp
+const getMessage = msg => `${getTimestamp()} - ${msg}`;
+
+// Read response data into an array buffer
+const getBuffer = input => input.arrayBuffer();
+
 // Clean up image urls, remove protocol, remove trailing slash from end of string
 const getUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '');
 
@@ -66,18 +72,13 @@ const getStatus = (response) => {
   return Promise.reject(new Error(`${response.status} / ${response.statusText}`));
 };
 
-// Read response data into an array buffer
-const getBuffer = input => input.arrayBuffer();
-
 // Notify
-const popNotice = (details) => {
+const popNotice = (notice) => {
   // Check notification preferences
   chrome.storage.sync.get('notify', (options) => {
     // If notifications desired
     if (options.notify) {
-      const notice = Object.assign({}, settings.notification, details);
-
-      chrome.notifications.create(notice, notificationId => notificationId);
+      chrome.notifications.create(Object.assign({}, settings.notice, notice));
     }
   });
 };
@@ -108,14 +109,14 @@ const process = (message) => {
       popNotice({
         type: 'image',
         imageUrl,
-        message: `${getTimestamp()} - ${getUrl(source)}`,
+        message: getMessage(getUrl(source)),
         contextMessage: target,
       });
     }))
     .catch((error) => {
       // Show errors
       popNotice({
-        message: `${getTimestamp()} - ${error.message}`,
+        message: getMessage(error.message),
         contextMessage: (error.name === 'Error') ? target : settings.host,
       });
     });
@@ -206,9 +207,9 @@ chrome.commands.onCommand.addListener((command) => {
   if (command === '@cyclops-toggle-timer') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       // Any tabs open?
-      if (tabs.length) {
-        refresh(tabs[0], !watchlist.get(tabs[0].id).checked);
-      }
+      // if (tabs.length) {
+      // }
+      refresh(tabs[0], !watchlist.get(tabs[0].id).checked);
     });
   }
 });
