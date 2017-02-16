@@ -49,6 +49,12 @@ const settings = {
 // Tabs on watch, Chrome v38 onwards
 const watchlist = new Map();
 
+// Check whether a boolean is defined
+const isDefined = check => check !== undefined;
+
+// Array contains value?
+const inArray = (arr, val) => arr.some(str => val.indexOf(str) !== -1);
+
 // Format curren time
 const getTimestamp = () => new Date().toTimeString().split(' ')[0];
 
@@ -84,43 +90,33 @@ const popNotice = (notice) => {
 };
 
 // File new image requests
-const process = (message) => {
-  const source = message && message.source;
-  const target = message && message.target;
+const process = (message = {}) => fetch(message.target)
+  .then(getStatus)
+  .then(getBuffer)
+  .then(arrayBuffer => fetch(settings.host, {
+    body: arrayBuffer,
+    method: 'PUT',
+  })
+  .then(getStatus)
+  .then(() => {
+    // Image type notifications accept blob urls
+    const blob = new Blob([arrayBuffer]);
+    const imageUrl = window.URL.createObjectURL(blob);
 
-  // False alarm, need both
-  if (!source || !target) {
-    return;
-  }
-
-  fetch(target)
-    .then(getStatus)
-    .then(getBuffer)
-    .then(arrayBuffer => fetch(settings.host, {
-      body: arrayBuffer,
-      method: 'PUT',
-    })
-    .then(getStatus)
-    .then(() => {
-      // Image type notifications accept blob urls
-      const blob = new Blob([arrayBuffer]);
-      const imageUrl = window.URL.createObjectURL(blob);
-
-      popNotice({
-        type: 'image',
-        imageUrl,
-        message: getMessage(getUrl(source)),
-        contextMessage: target,
-      });
-    }))
-    .catch((error) => {
-      // Show errors
-      popNotice({
-        message: getMessage(error.message),
-        contextMessage: (error.name === 'Error') ? target : settings.host,
-      });
+    popNotice({
+      imageUrl,
+      type: 'image',
+      message: getMessage(getUrl(message.source)),
+      contextMessage: message.target,
     });
-};
+  }))
+  .catch((error) => {
+    // Show errors
+    popNotice({
+      message: getMessage(error.message),
+      contextMessage: (error.name === 'Error') ? message.target : settings.host,
+    });
+  });
 
 // Push new tabs to the watchlist, set icon and timers accordingly
 const refresh = (tab = { url: '' }, checked) => {
@@ -131,14 +127,11 @@ const refresh = (tab = { url: '' }, checked) => {
   };
 
   chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], (options) => {
-    const isDefined = check => check !== undefined;
-    const isEnabled = ![...options.blacklist, 'chrome://'].some(str => tab.url.indexOf(str) !== -1);
-    const isChecked = isDefined(checked)
-      ? checked
-      : isDefined(entry.checked) && entry.checked;
-    const wantsTimer = isEnabled && isChecked && !options.freeze;
+    const isEnabled = !inArray([...options.blacklist, 'chrome://'], entry.url);
+    const isChecked = isDefined(checked)? checked : isDefined(entry.checked) && entry.checked;
+    const isAlarmed = isEnabled && isChecked && !options.freeze;
 
-    if (wantsTimer) {
+    if (isAlarmed) {
       chrome.browserAction.setIcon({ path: 'img/icon19-hi.png' });
       chrome.alarms.create('@cyclops', {
         periodInMinutes: options.rate,
@@ -153,7 +146,7 @@ const refresh = (tab = { url: '' }, checked) => {
     if (settings.contextMenus.indexOf('@cyclops-toggle-timer') > -1) {
       chrome.contextMenus.update('@cyclops-toggle-timer', {
         enabled: isEnabled && !options.freeze,
-        checked: wantsTimer,
+        checked: isAlarmed,
       });
     }
 
@@ -184,6 +177,26 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
+// Pick an image on click
+chrome.browserAction.onClicked.addListener((tab) => {
+  chrome.tabs.sendMessage(tab.id, {
+    message: '@cyclops/sample',
+  });
+});
+
+// Timer management
+chrome.alarms.onAlarm.addListener(() => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    // Any tabs active?
+    if (tabs.length) {
+      // Ask content script for a random image
+      chrome.tabs.sendMessage(tabs[0].id, {
+        message: '@cyclops/sample',
+      });
+    }
+  });
+});
+
 // Context menu management
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   // Which menu is this?
@@ -206,50 +219,24 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 chrome.commands.onCommand.addListener((command) => {
   if (command === '@cyclops-toggle-timer') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      // Any tabs open?
-      // if (tabs.length) {
-      // }
-      refresh(tabs[0], !watchlist.get(tabs[0].id).checked);
+      // This is rare but it does happen that command is called without open windows
+      if (tabs.length) {
+        refresh(tabs[0], !watchlist.get(tabs[0].id).checked);
+      }
     });
   }
 });
 
-// Timer management
-chrome.alarms.onAlarm.addListener(() => {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    // If multiple tabs are present
-    if (tabs.length) {
-      // Ask content script for a random image
-      chrome.tabs.sendMessage(tabs[0].id, {
-        message: '@cyclops/sample',
-      });
-    }
-  });
-});
-
-// Pick an image on click
-chrome.browserAction.onClicked.addListener((tab) => {
-  chrome.tabs.sendMessage(tab.id, {
-    message: '@cyclops/sample',
-  });
-});
-
-// Reset watchlist if blacklist has changed
-chrome.storage.onChanged.addListener((changes) => {
-  // Start from scratch just in case
-  if (changes.blacklist) {
-    watchlist.clear();
-  }
-});
-
 // Tab management
-// Track tab changes
+// 1. Track tab changes
 chrome.windows.onFocusChanged.addListener(() => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    if (tabs.length) {
-      refresh(tabs[0]);
-    }
+    refresh(tabs[0]);
   });
+});
+
+chrome.tabs.onActivated.addListener((info) => {
+  chrome.tabs.get(info.tabId, refresh);
 });
 
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
@@ -258,26 +245,30 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   }
 });
 
-chrome.tabs.onActivated.addListener((info) => {
-  chrome.tabs.get(info.tabId, refresh);
-});
-
-// Track new tabs
+// 2. Track new tabs
 chrome.tabs.onCreated.addListener(refresh);
 
-// Remove from watchlist when,
-// 1. Tab is closed
+// 3. Remove from watchlist when,
+// 3.1. Tab is closed
 chrome.tabs.onRemoved.addListener((tabId) => {
   watchlist.delete(tabId);
 });
 
-// 2. Tab is detached
+// 3.2. Tab is detached
 chrome.tabs.onDetached.addListener((tabId) => {
   watchlist.delete(tabId);
 });
 
-// 3. Tab is replaced
+// 3.3. Tab is replaced
 chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
   watchlist.delete(removedTabId);
+});
+
+// 4. Reset watchlist if blacklist has changed
+chrome.storage.onChanged.addListener((changes) => {
+  // Start from scratch just in case
+  if (changes.blacklist) {
+    watchlist.clear();
+  }
 });
 
