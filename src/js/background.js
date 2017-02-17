@@ -1,6 +1,6 @@
 // Config
 const settings = {
-  // Host url, just use localhost for now
+  // Host url
   host: ('update_url' in chrome.runtime.getManifest()) ? 'https://cyclops.ws/io' : 'http://localhost:8022/io',
 
   // Auto refresh how often
@@ -228,7 +228,6 @@ chrome.commands.onCommand.addListener((command) => {
 });
 
 // Tab management
-// 1. Track tab changes
 chrome.windows.onFocusChanged.addListener(() => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     refresh(tabs[0]);
@@ -245,28 +244,24 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   }
 });
 
-// 2. Track new tabs
+// New tabs
 chrome.tabs.onCreated.addListener(refresh);
 
-// 3. Remove from watchlist when,
-// 3.1. Tab is closed
+// Remove from watchlist
 chrome.tabs.onRemoved.addListener((tabId) => {
   watchlist.delete(tabId);
 });
 
-// 3.2. Tab is detached
 chrome.tabs.onDetached.addListener((tabId) => {
   watchlist.delete(tabId);
 });
 
-// 3.3. Tab is replaced
 chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
   watchlist.delete(removedTabId);
 });
 
-// 4. Reset watchlist if blacklist has changed
+// Reset watchlist if blacklist has changed
 chrome.storage.onChanged.addListener((changes) => {
-  // Start from scratch just in case
   if (changes.blacklist) {
     watchlist.clear();
   }
