@@ -128,7 +128,7 @@ const refresh = (tab = { url: '' }, checked) => {
 
   chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], (options) => {
     const isEnabled = !inArray([...options.blacklist, 'chrome://'], entry.url);
-    const isChecked = isDefined(checked)? checked : isDefined(entry.checked) && entry.checked;
+    const isChecked = isDefined(checked) ? checked : isDefined(entry.checked) && entry.checked;
     const isAlarmed = isEnabled && isChecked && !options.freeze;
 
     if (isAlarmed) {
