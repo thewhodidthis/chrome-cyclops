@@ -3,6 +3,7 @@
   "version": "1.0.4",
   "description": "Helps source images while browsing",
   "main": "background.js",
+  "homepage": "https://zzzxzzz.xyz",
   "scripts": {
     "test": "eslint .",
     "prestart": "mkdir -p dist",
