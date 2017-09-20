@@ -1,30 +1,27 @@
 {
   "name": "chrome-cyclops",
-  "description": "Helps source images while browsing",
   "version": "1.0.4",
-  "keywords": [
-    "cyclops",
-    "image"
-  ],
+  "description": "Helps source images while browsing",
+  "main": "background.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\"",
-    "clear": "npm run clear:dist && npm run clear:logs",
-    "clear:dist": "rm -rf dist/",
-    "clear:logs": "rm -rf *.log",
-    "lint": "npm run lint:es && npm run lint:css",
-    "lint:es": "eslint src/js/*.js; exit 0",
-    "lint:css": "csslint src/css/*.css --format=compact",
-    "start": "npm run build",
-    "prebuild": "mkdir -p dist",
-    "build": "cd src && zip ../dist/chrome-cyclops.zip -r . -x *.DS_Store -x *.idraw"
+    "test": "eslint .",
+    "prestart": "mkdir -p dist",
+    "start": "zip dist/chrome-cyclops.zip -r . -i assets/* -i *.js -i *.html -i manifest.json"
   },
-  "devDependencies": {
-    "eslint": "latest",
-    "csslint": "latest"
+  "eslintConfig": {
+    "extends": "@thewhodidthis",
+    "globals": {
+      "chrome": true
+    }
   },
   "engines": {
-    "node": ">=6.6.0",
-    "npm": ">=3.10.3"
+    "node": ">=4.2.4",
+    "npm": ">=3.5.3"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@thewhodidthis/eslint-config": "latest",
+    "eslint": "latest"
   },
   "author": "sChzs BkgNns <sotirios.bakagiannis@gmail.com> (https://www.thewhodidthis.com)",
   "license": "MIT",
