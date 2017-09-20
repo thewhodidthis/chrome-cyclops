@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="icon" href="data:image/x-icon;base64,iVBORw0KGgo=">
+    <title>Cyclops options</title>
+    <style>
+      body {
+        margin: 0.75rem;
+      }
+
+      p {
+        margin: 0.75rem 0 0;
+      }
+
+      span {
+        display: inline-block;
+        line-height: 1;
+      }
+
+      small {
+        color: #aaa;
+        display: inline-block;
+        font-size: 9px;
+        line-height: 1.25;
+      }
+
+      form {
+        overflow: hidden;
+        width: 100%;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+      }
+
+      label span {
+        vertical-align: middle;
+      }
+
+      textarea {
+        box-sizing: border-box;
+        max-width: 30rem;
+        width: 100%;
+      }
+
+      input[type="checkbox"] {
+        position: relative;
+        vertical-align: middle;
+      }
+
+      .flash {
+        color: #999;
+      }
+
+      .flash {
+        max-width: 200px;
+        overflow: hidden;
+        padding-left: 0.25rem;
+        text-overflow: ellipsis;
+        vertical-align: middle;
+        white-space: nowrap;
+      }
+
+      .flash span {
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+
+  <body>
+    <form>
+      <div>
+        <label>
+          <input id="rate" type="number" min="1" max="20" step=".1" />
+          <span>Refresh rate <small>in minutes</small></span>
+        </label>
+      </div>
+      <div>
+        <label>
+          <textarea id="blacklist" placeholder="eg. mail.google." rows="8" wrap="off"></textarea>
+          <div>
+            <span>Disable timer for these pages <small>one per line</small></span>
+          </div>
+        </label>
+      </div>
+      <div>
+        <label>
+          <input id="notify" type="checkbox" />
+          <span>Enable notifications</span>
+        </label>
+      </div>
+      <div>
+        <label>
+          <input id="freeze" type="checkbox" />
+          <span>Disable timer</span>
+        </label>
+      </div>
+      <div>
+        <p>
+          <input id="save" type="button" value="Save" />
+          <input id="reset" type="button" value="Reset" />
+          <span id="flash" class="flash"></span>
+        </p>
+      </div>
+    </form>
+
+    <script src="/options.js"></script>
+  </body>
+</html>

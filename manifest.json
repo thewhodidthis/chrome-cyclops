@@ -1,0 +1,64 @@
+{
+  "name": "Cyclops",
+  "short_name": "cyclops",
+  "version": "1.0.0",
+  "manifest_version": 2,
+  "description": "Helps source images while browsing",
+  "homepage_url": "https://zzzxzzz.xyz",
+  "minimum_chrome_version": "49",
+  "icons": {
+    "16": "assets/icon.png",
+    "32": "assets/icon.png",
+    "48": "assets/icon.png",
+    "128": "assets/icon.png"
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "exclude_matches": [
+        "*://localhost/"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "commands": {
+    "@cyclops-toggle-timer": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+5"
+      },
+      "description": "Toggle timer"
+    },
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K"
+      }
+    }
+  },
+  "browser_action": {
+    "default_icon":  "assets/icon.png"
+  },
+  "permissions": [
+    "tabs",
+    "alarms",
+    "storage",
+    "notifications",
+    "contextMenus",
+    "<all_urls>"
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "chrome_style": true
+  }
+}
