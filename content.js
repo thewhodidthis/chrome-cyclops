@@ -1,6 +1,5 @@
 ((window, document) => {
   // Convert node list into array
-  // http://stackoverflow.com/questions/2735067/how-to-convert-a-dom-node-list-to-an-array-in-javascript
   const $$ = elements => Array.from(elements)
 
   // Remove duplicates from array
@@ -47,9 +46,9 @@
     let seeds = []
 
     // Fired at rate if timer set
-    chrome.runtime.onMessage.addListener((request) => {
+    chrome.runtime.onMessage.addListener(({ message }) => {
       // Skip if no images pass the checks or request looks foreign
-      if (images && images.length >= 1 && request.message === '@cyclops/sample') {
+      if (images && images.length >= 1 && message && message === '@cyclops/sample') {
         // Reset seeds array if empty
         // http://stackoverflow.com/questions/3746725/create-a-javascript-array-containing-1-n
         if (seeds.length === 0) {
