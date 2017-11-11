@@ -1,7 +1,8 @@
 // Config
+const manifest = chrome.runtime.getManifest()
 const settings = {
   // Host url
-  host: ('update_url' in chrome.runtime.getManifest()) ? 'https://zzzxzzz.xyz/io' : 'http://localhost:8011/io',
+  host: ('update_url' in manifest) ? 'https://zzzxzzz.xyz/io' : 'http://localhost:8011/io',
 
   // Auto refresh how often
   rate: 1,
@@ -82,40 +83,40 @@ const getStatus = (response) => {
 // Notify
 const popNotice = (notice) => {
   // Check notification preferences
-  chrome.storage.sync.get('notify', (options) => {
+  chrome.storage.sync.get('notify', ({ notify } = {}) => {
     // If notifications desired
-    if (options.notify) {
+    if (notify) {
       chrome.notifications.create(Object.assign({}, settings.notice, notice))
     }
   })
 }
 
 // File new image requests
-const process = (message = {}) => fetch(message.target)
+const process = ({ source, target } = {}) => fetch(target)
   .then(getStatus)
   .then(getBuffer)
-  .then(arrayBuffer => fetch(settings.host, {
-    body: arrayBuffer,
-    method: 'PUT'
-  })
+  .then(body => fetch(settings.host, { body, method: 'PUT' })
     .then(getStatus)
     .then(() => {
-    // Image type notifications accept blob urls
-      const blob = new Blob([arrayBuffer])
+      // Image type notifications accept blob urls
+      const blob = new Blob([body])
+      const from = getUrl(source)
+
+      const message = getMessage(from)
       const imageUrl = window.URL.createObjectURL(blob)
 
       popNotice({
         imageUrl,
-        type: 'image',
-        message: getMessage(getUrl(message.source)),
-        contextMessage: message.target
+        message,
+        contextMessage: target,
+        type: 'image'
       })
     }))
-  .catch((error) => {
+  .catch(({ message, name }) => {
     // Show errors
     popNotice({
-      message: getMessage(error.message),
-      contextMessage: (error.name === 'Error') ? message.target : settings.host
+      message: getMessage(message),
+      contextMessage: name === 'Error' ? target : settings.host
     })
   })
 
