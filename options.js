@@ -6,12 +6,10 @@
   // Turn above into key value pairs for future reference
   const formElements = buttonIds
     .concat(optionIds)
-    .reduce((obj, idx) => Object.assign(obj, {
-      [idx]: document.getElementById(idx)
-    }), {})
+    .reduce((o, k) => Object.assign(o, { [k]: document.getElementById(k) }), {})
 
   // Only matches domain like strings, borrowed from Feedly
-  const isUrl = url => (url.match(/^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/))
+  const isUrl = x => (x.match(/^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/))
 
   // Based on http://underscorejs.org/#escape
   const escapeHtml = str => String(str)
@@ -57,19 +55,19 @@
     const notify = !!formElements.notify.checked
 
     // Timer rate allowed no less than a minute
-    const rate = Math.max(1, parseFloat(formElements.rate.value))
+    const rate = parseFloat(formElements.rate.value)
 
-    return { blacklist, freeze, notify, rate }
+    return { blacklist, freeze, notify, rate: Math.max(1, rate) }
   }
 
   // Update the form given a set of values for each setting
-  const setForm = (options) => {
-    formElements.rate.value = options.rate
-    formElements.notify.checked = options.notify
-    formElements.freeze.checked = options.freeze
+  const setForm = ({ rate, notify, freeze, blacklist } = {}) => {
+    formElements.rate.value = rate
+    formElements.notify.checked = notify
+    formElements.freeze.checked = freeze
 
     // Parse blacklist array into line separated strings
-    formElements.blacklist.value = options.blacklist.reduce((a, b) => (a.length ? `${a}\n${b}` : b), '')
+    formElements.blacklist.value = blacklist.reduce((a, b) => (a.length ? `${a}\n${b}` : b), '')
   }
 
   chrome.storage.sync.get(optionIds, (options) => {
