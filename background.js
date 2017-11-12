@@ -71,13 +71,17 @@ const getUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '')
 
 // Check response status
 const getStatus = (response) => {
+  const { status, statusText } = response
+
   // Success
-  if (response.status >= 200 && response.status < 300) {
+  if (status >= 200 && status < 300) {
     return Promise.resolve(response)
   }
 
   // Errors
-  return Promise.reject(new Error(`${response.status} / ${response.statusText}`))
+  const e = new Error(`${status} / ${statusText}`)
+
+  return Promise.reject(e)
 }
 
 // Notify
@@ -100,10 +104,10 @@ const process = ({ source, target } = {}) => fetch(target)
     .then(() => {
       // Image type notifications accept blob urls
       const blob = new Blob([body])
-      const from = getUrl(source)
-
-      const message = getMessage(from)
       const imageUrl = window.URL.createObjectURL(blob)
+
+      const from = getUrl(source)
+      const message = getMessage(from)
 
       popNotice({
         imageUrl,
@@ -128,15 +132,15 @@ const refresh = (tab = { url: '' }, checked) => {
     url: tab.url
   }
 
-  chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], (options) => {
-    const isEnabled = !inArray([...options.blacklist, 'chrome://'], entry.url)
+  chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], ({ blacklist, rate, freeze } = {}) => {
+    const isEnabled = !inArray([...blacklist, 'chrome://'], entry.url)
     const isChecked = isDefined(checked) ? checked : isDefined(entry.checked) && entry.checked
-    const isAlarmed = isEnabled && isChecked && !options.freeze
+    const isAlarmed = isEnabled && isChecked && !freeze
 
     if (isAlarmed) {
       chrome.browserAction.setIcon({ path: 'assets/icon.png' })
       chrome.alarms.create('@cyclops', {
-        periodInMinutes: options.rate
+        periodInMinutes: rate
       })
     } else {
       chrome.browserAction.setIcon({
@@ -147,7 +151,7 @@ const refresh = (tab = { url: '' }, checked) => {
 
     if (settings.contextMenus.indexOf('@cyclops-toggle-timer') > -1) {
       chrome.contextMenus.update('@cyclops-toggle-timer', {
-        enabled: isEnabled && !options.freeze,
+        enabled: isEnabled && !freeze,
         checked: isAlarmed
       })
     }
