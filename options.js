@@ -1,15 +1,16 @@
 ((window, document) => {
-  // Id selectors for buttons and form elements
-  const buttonIds = 'flash,reset,save'.split(',')
+  // Id selectors for form elements and buttons
   const optionIds = 'blacklist,freeze,notify,rate'.split(',')
+  const buttonIds = 'flash,reset,save'.split(',')
 
   // Turn above into key value pairs for future reference
-  const formElements = buttonIds
-    .concat(optionIds)
+  const formElements = optionIds
+    .concat(buttonIds)
     .reduce((o, k) => Object.assign(o, { [k]: document.getElementById(k) }), {})
 
-  // Only matches domain like strings, borrowed from Feedly
-  const isUrl = x => (x.match(/^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/))
+  // Matches domain like strings, borrowed from Feedly
+  const regex = /^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/
+  const isUrl = x => x.match(regex)
 
   // Based on http://underscorejs.org/#escape
   const escapeHtml = str => String(str)
