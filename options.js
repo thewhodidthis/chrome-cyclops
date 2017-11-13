@@ -1,4 +1,4 @@
-((window, document) => {
+((window, document, undefined) => {
   // Id selectors for form elements and buttons
   const optionIds = 'blacklist,freeze,notify,rate'.split(',')
   const buttonIds = 'flash,reset,save'.split(',')

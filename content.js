@@ -1,4 +1,4 @@
-((window, document) => {
+((window, document, undefined) => {
   // Convert node list into array
   const $$ = elements => Array.from(elements)
 
