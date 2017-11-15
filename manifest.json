@@ -34,12 +34,6 @@
     }
   ],
   "commands": {
-    "@cyclops-toggle-timer": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+5"
-      },
-      "description": "Toggle timer"
-    },
     "_execute_browser_action": {
       "suggested_key": {
         "default": "Ctrl+Shift+K"
