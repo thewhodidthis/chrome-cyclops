@@ -1,66 +1,64 @@
-((window, document, undefined) => {
-  // Convert node list into array
-  const $$ = elements => Array.from(elements)
+(() => {
+  // $$
+  const gather = (s, host = document) => Array.from(host.querySelectorAll(s))
 
   // Remove duplicates from array
   // http://stackoverflow.com/questions/9229645/remove-duplicates-from-javascript-array
-  const getUnique = (array = []) => [...new Set(array)]
+  const unique = (x = []) => [...new Set(x)]
 
-  // Pop a random entry in array
-  const getRandom = (array = []) => array.splice(Math.floor(Math.random() * array.length), 1)[0]
+  // Place random entry in array
+  const random = (x = []) => x.splice(Math.floor(Math.random() * x.length), 1)[0]
 
   // Exclude common cases of impossible imgs
-  const getImages = (host = document) => {
-    let output = $$(host.getElementsByTagName('img')) || []
-
+  const review = host => unique(gather('img', host)
     // Filter our lazyloaded imgs, empty src attr
-    output = output.filter(img => img.src)
-
+    .filter(img => img.src)
     // Filter our cleargifs, 1x1s
-    output = output.filter(img => (img.naturalWidth > 1 && img.naturalHeight > 1))
-
+    .filter(img => (img.naturalWidth > 1 && img.naturalHeight > 1))
     // Extract src attr
-    output = output.map(img => img.src)
-
-    // Dedupe
-    output = getUnique(output)
-
-    return output
-  }
+    .map(img => img.src))
 
   window.addEventListener('load', () => {
-    const images = getImages()
-    const iframes = $$(document.getElementsByTagName('iframe'))
+    const frames = gather('iframe')
+    const images = review()
+
+    const { origin, hostname: source } = window.location
 
     // Dig deeper image gathering operations :)
-    if (iframes.length) {
+    if (frames.length) {
       // Refresh image list, useful with tumblr photosets
-      iframes
+      frames
         // Avoid cross origin issues, include same domain iframes only
-        .filter(iframe => iframe.src.indexOf(location.origin) === 0)
+        .filter(x => x.src.indexOf(origin) === 0)
         // Get the images inside of the iframes on the page, but only if they pass the checks
-        .forEach(iframe => images.push(...getImages(iframe.contentDocument)))
+        .forEach((x) => {
+          const extras = review(x.contentDocument)
+
+          images.push(...extras)
+        })
     }
 
     // Store image indices to choose from
-    let seeds = []
+    let guides = []
 
     // Fired at rate if timer set
     chrome.runtime.onMessage.addListener(({ message }) => {
       // Skip if no images pass the checks or request looks foreign
       if (images && images.length >= 1 && message && message === '@cyclops/sample') {
-        // Reset seeds array if empty
-        // http://stackoverflow.com/questions/3746725/create-a-javascript-array-containing-1-n
-        if (seeds.length === 0) {
-          seeds = [...Array(images.length).keys()]
+        // Reset guides array if empty
+        if (guides.length === 0) {
+          // http://stackoverflow.com/questions/3746725/create-a-javascript-array-containing-1-n
+          const g = Array(images.length).keys()
+
+          guides = [...g]
         }
 
-        // Let the background script know of the image chosen
-        chrome.runtime.sendMessage({
-          source: location.hostname,
-          target: images[getRandom(seeds)]
-        })
+        const needle = random(guides)
+        const target = images[needle]
+
+        // Let the background script know
+        chrome.runtime.sendMessage({ source, target })
       }
     })
   })
-})(window, document)
+})()

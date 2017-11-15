@@ -1,27 +1,8 @@
-// Config
-const manifest = chrome.runtime.getManifest()
-const settings = {
-  // Host url
-  host: ('update_url' in manifest) ? 'https://zzzxzzz.xyz/io' : 'http://localhost:8011/io',
+const backup = 'http://localhost:8011'
+const remote = 'https://zzzxzzz.xyz'
 
-  // Auto refresh how often
-  rate: 1,
-
-  // Timer off
-  freeze: false,
-
-  // Wants notifications
-  notify: false,
-
-  // Disable when visiting these pages
-  blacklist: [
-    'localhost',
-    'zzzxzzz.xyz',
-    '011.thewhodidthis.com',
-    'mail.yahoo.com',
-    'mail.google.com',
-    'docs.google.com'
-  ],
+const config = {
+  origin: `${('update_url' in chrome.runtime.getManifest()) ? remote : backup}/io`,
 
   // Notification defaults
   notice: {
@@ -30,7 +11,6 @@ const settings = {
     iconUrl: 'assets/icon.png'
   },
 
-  // Ref menus post create
   contextMenus: [
     {
       id: '@cyclops-sample',
@@ -48,28 +28,39 @@ const settings = {
   ]
 }
 
-// Tabs on watch, Chrome v38 onwards
-const watchlist = new Map()
+const supply = {
+  // Auto refresh how often
+  period: 1,
 
-// Check whether a boolean is defined
-const isDefined = check => check !== undefined
+  // Timer off
+  repeat: false,
 
-// Array contains value?
-const inArray = (arr, val) => arr.some(str => val.indexOf(str) !== -1)
+  // Wants notifications
+  notify: false,
 
-// Format curren time
-const getTimestamp = () => new Date().toTimeString().split(' ')[0]
+  // Skip timer when visiting these pages
+  ignore: [
+    'localhost',
+    'zzzxzzz.xyz',
+    '011.thewhodidthis.com',
+    'mail.yahoo.com',
+    'mail.google.com',
+    'docs.google.com'
+  ]
+}
 
-// Prefix timestamp
-const getMessage = msg => `${getTimestamp()} - ${msg}`
-
-// Read response data into an array buffer
-const getBuffer = input => input.arrayBuffer()
+// Array contains?
+const isAllowed = (a, v) => !!v && !a.some(x => v.indexOf(x) !== -1)
 
 // Clean up image urls, remove protocol, remove trailing slash from end of string
-const getUrl = url => url.replace(/.*?:\/\//g, '').replace(/\/$/, '')
+const formatUrl = x => x.replace(/.*?:\/\//g, '').replace(/\/$/, '')
 
-// Check response status
+// Message formatting helpers
+const spellDate = () => new Date().toTimeString().split(' ')[0]
+const spellNote = x => `${spellDate()} - ${formatUrl(x)}`
+
+// Response handling helpers
+const getBuffer = from => from.arrayBuffer()
 const getStatus = (response) => {
   const { status, statusText } = response
 
@@ -78,197 +69,159 @@ const getStatus = (response) => {
     return Promise.resolve(response)
   }
 
-  // Errors
   const e = new Error(`${status} / ${statusText}`)
 
   return Promise.reject(e)
 }
 
-// Notify
-const popNotice = (notice) => {
+const signal = (notice) => {
   // Check notification preferences
   chrome.storage.sync.get('notify', ({ notify } = {}) => {
     // If notifications desired
     if (notify) {
-      chrome.notifications.create(Object.assign({}, settings.notice, notice))
+      const from = Object.assign({}, config.notice, notice)
+
+      chrome.notifications.create(from)
     }
   })
 }
 
 // File new image requests
-const process = ({ source, target } = {}) => fetch(target)
+const upload = ({ source, target } = {}) => fetch(target)
   .then(getStatus)
   .then(getBuffer)
-  .then(body => fetch(settings.host, { body, method: 'PUT' })
+  .then(body => fetch(config.origin, { body, method: 'PUT' })
     .then(getStatus)
     .then(() => {
       // Image type notifications accept blob urls
       const blob = new Blob([body])
-      const imageUrl = window.URL.createObjectURL(blob)
+      const data = window.URL.createObjectURL(blob)
 
-      const from = getUrl(source)
-      const message = getMessage(from)
-
-      popNotice({
-        imageUrl,
-        message,
+      signal({
         contextMessage: target,
+        imageUrl: data,
+        message: spellNote(source),
         type: 'image'
       })
-    }))
-  .catch(({ message, name }) => {
-    // Show errors
-    popNotice({
-      message: getMessage(message),
-      contextMessage: name === 'Error' ? target : settings.host
+    })
+  ).catch(({ message, name }) => {
+    // Notify of errors as well
+    signal({
+      contextMessage: name === 'Error' ? target : config.origin,
+      message: spellNote(message)
     })
   })
 
-// Push new tabs to the watchlist, set icon and timers accordingly
-const refresh = (tab = { url: '' }, checked) => {
-  // Get from watchlist or create setting watch flag in the process
-  const entry = watchlist.get(tab.id) || {
-    checked,
-    url: tab.url
-  }
+// Set icon and timers
+const update = ({ url = '' } = {}) => {
+  chrome.storage.sync.get('ignore', ({ ignore } = {}) => {
+    const enabled = isAllowed([...ignore, 'chrome://'], url)
+    const path = enabled ? 'assets/icon.png' : 'assets/icon-lo.png'
 
-  chrome.storage.sync.get(['blacklist', 'freeze', 'rate'], ({ blacklist, rate, freeze } = {}) => {
-    const isEnabled = !inArray([...blacklist, 'chrome://'], entry.url)
-    const isChecked = isDefined(checked) ? checked : isDefined(entry.checked) && entry.checked
-    const isAlarmed = isEnabled && isChecked && !freeze
-
-    if (isAlarmed) {
-      chrome.browserAction.setIcon({ path: 'assets/icon.png' })
-      chrome.alarms.create('@cyclops', {
-        periodInMinutes: rate
-      })
-    } else {
-      chrome.browserAction.setIcon({
-        path: isEnabled ? 'assets/icon.png' : 'assets/icon-alt.png'
-      })
-      chrome.alarms.clearAll()
-    }
-
-    if (settings.contextMenus.indexOf('@cyclops-toggle-timer') > -1) {
-      chrome.contextMenus.update('@cyclops-toggle-timer', {
-        enabled: isEnabled && !freeze,
-        checked: isAlarmed
-      })
-    }
-
-    // Finally update the tab entry in the watchlist
-    watchlist.set(tab.id, Object.assign(entry, { checked: isChecked }))
+    chrome.browserAction.setIcon({ path })
+    chrome.contextMenus.update('@cyclops-toggle-timer', { enabled })
   })
 }
 
-chrome.runtime.onMessage.addListener(process)
+chrome.runtime.onMessage.addListener(upload)
 
 // Runs on load, reload, and after browser or extension updates
 chrome.runtime.onInstalled.addListener(() => {
   // Setup context menus
   chrome.contextMenus.removeAll(() => {
-    // Save ids
-    settings.contextMenus = settings.contextMenus.map(props => chrome.contextMenus.create(props))
+    config.contextMenus.forEach((from) => {
+      chrome.contextMenus.create(from)
+    })
   })
 
-  // Retrieve options from store
-  chrome.storage.sync.get(Object.keys(settings), (options) => {
-    // No options in store, use defaults
-    chrome.storage.sync.set(Object.keys(options).length === 0 ? settings : options)
+  const keys = Object.keys(supply)
 
-    // Touch watchlist
-    chrome.tabs.query({ active: true }, (tab) => {
-      refresh(tab[0])
+  // Retrieve options from store
+  chrome.storage.sync.get(keys, (inputs) => {
+    const from = Object.keys(inputs)
+    const data = from.length === 0 ? supply : inputs
+
+    // No options in store, use defaults
+    chrome.storage.sync.set(data)
+
+    chrome.tabs.query({ active: true }, (tabs) => {
+      // Just another way of saying `tabs[0]`
+      const [tab] = tabs
+
+      update(tab)
     })
   })
 })
 
 // Pick an image on click
-chrome.browserAction.onClicked.addListener((tab) => {
-  chrome.tabs.sendMessage(tab.id, {
-    message: '@cyclops/sample'
-  })
+chrome.browserAction.onClicked.addListener(({ id }) => {
+  chrome.tabs.sendMessage(id, { message: '@cyclops/sample' })
 })
 
 // Timer management
+chrome.storage.onChanged.addListener(({ repeat }) => {
+  if (repeat) {
+    chrome.storage.sync.get('period', ({ period } = {}) => {
+      if (repeat.newValue) {
+        chrome.alarms.create('@cyclops', { periodInMinutes: period })
+      } else {
+        chrome.alarms.clearAll()
+      }
+    })
+  }
+})
+
 chrome.alarms.onAlarm.addListener(() => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     // Any tabs active?
     if (tabs.length) {
-      // Ask content script for a random image
-      chrome.tabs.sendMessage(tabs[0].id, {
-        message: '@cyclops/sample'
+      const [{ id, url }] = tabs
+
+      chrome.storage.sync.get('ignore', ({ ignore } = {}) => {
+        const enabled = isAllowed([...ignore, 'chrome://'], url)
+
+        if (enabled) {
+          // Ask content script for a random image
+          chrome.tabs.sendMessage(id, { message: '@cyclops/sample' })
+        }
       })
     }
   })
 })
 
 // Context menu management
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  // Which menu is this?
-  switch (info.menuItemId) {
+chrome.contextMenus.onClicked.addListener(({ menuItemId, checked, srcUrl: target }, tab) => {
+  switch (menuItemId) {
   case '@cyclops-toggle-timer':
-    refresh(tab, info.checked)
+    // Adjust timer prefs
+    chrome.storage.sync.set({ repeat: checked })
     break
   case '@cyclops-sample':
-    // Post the image
-    process({
-      source: tab.url,
-      target: info.srcUrl
-    })
+    // Post
+    upload({ source: tab.url, target })
     break
   default:
-  }
-})
-
-// Shortcut management
-chrome.commands.onCommand.addListener((command) => {
-  if (command === '@cyclops-toggle-timer') {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      // This is rare but it does happen that command is called without open windows
-      if (tabs.length) {
-        refresh(tabs[0], !watchlist.get(tabs[0].id).checked)
-      }
-    })
   }
 })
 
 // Tab management
 chrome.windows.onFocusChanged.addListener(() => {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    refresh(tabs[0])
+    const [tab] = tabs
+
+    update(tab)
   })
 })
 
-chrome.tabs.onActivated.addListener(({ tabId }) => {
-  chrome.tabs.get(tabId, refresh)
-})
-
-chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (info.status === 'complete' && tab.active) {
-    refresh(tab)
+chrome.tabs.onUpdated.addListener((tabId, { status }, tab) => {
+  if (status === 'complete' && tab.active) {
+    update(tab)
   }
 })
 
 // New tabs
-chrome.tabs.onCreated.addListener(refresh)
+chrome.tabs.onCreated.addListener(update)
 
-// Remove from watchlist
-chrome.tabs.onRemoved.addListener((tabId) => {
-  watchlist.delete(tabId)
-})
-
-chrome.tabs.onDetached.addListener((tabId) => {
-  watchlist.delete(tabId)
-})
-
-chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
-  watchlist.delete(removedTabId)
-})
-
-// Reset watchlist if blacklist has changed
-chrome.storage.onChanged.addListener((changes) => {
-  if (changes.blacklist) {
-    watchlist.clear()
-  }
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  chrome.tabs.get(tabId, update)
 })

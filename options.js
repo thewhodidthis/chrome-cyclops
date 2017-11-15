@@ -1,19 +1,9 @@
-((window, document, undefined) => {
-  // Id selectors for form elements and buttons
-  const optionIds = 'blacklist,freeze,notify,rate'.split(',')
-  const buttonIds = 'flash,reset,save'.split(',')
-
-  // Turn above into key value pairs for future reference
-  const formElements = optionIds
-    .concat(buttonIds)
-    .reduce((o, k) => Object.assign(o, { [k]: document.getElementById(k) }), {})
-
+(() => {
   // Matches domain like strings, borrowed from Feedly
-  const regex = /^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/
-  const isUrl = x => x.match(regex)
+  const urlExp = /^((?:(?:(?:\w[.\-+]?)*)\w)+)((?:(?:(?:\w[.\-+]?){0,62})\w)+)\.(\w{2,6})$/
 
   // Based on http://underscorejs.org/#escape
-  const escapeHtml = str => String(str)
+  const encode = s => String(s)
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/&/g, '&amp;')
@@ -22,79 +12,74 @@
     .replace(/\//g, '&#x2F;')
 
   // Cleanup blacklisted urls
-  const parseUrls = (input) => {
-    let output = escapeHtml(input).split(/\n/)
-
+  const filter = s => encode(s)
+    .split(/\n/)
     // Trim whitespace
-    output = output.map(url => url.trim())
-
+    .map(x => x.trim())
     // Remove empty lines
-    output = output.filter(url => url.length)
-
+    .filter(x => x.length)
     // Dedupe
-    output = output.filter((url, index, array) => array.indexOf(url) === index)
-
+    .filter((x, k, a) => a.indexOf(x) === k)
     // Check for gobbledygooked list entries and just silently ignore those invalid
-    output = output.filter(url => isUrl(url))
+    .filter(x => x.match(urlExp))
 
-    return output
-  }
+  const gather = (o, k) => Object.assign(o, { [k]: document.getElementById(k) })
 
-  const popMessage = (msg) => {
+  const config = 'ignore,notify,period'.split(',')
+  const inputs = config.reduce(gather, {})
+
+  const { flash, reset, store } = 'flash,reset,store'.split(',').reduce(gather, {})
+
+  const signal = (text) => {
     // Set flash mesage, escaped on input
-    formElements.flash.innerHTML = msg || ''
+    flash.innerHTML = text || ''
 
     // Clear out after a short while
     setTimeout(() => {
-      formElements.flash.textContent = ''
+      flash.textContent = ''
     }, 2000)
   }
 
-  const getForm = () => {
-    const blacklist = parseUrls(formElements.blacklist.value)
-    const freeze = !!formElements.freeze.checked
-    const notify = !!formElements.notify.checked
-
-    // Timer rate allowed no less than a minute
-    const rate = parseFloat(formElements.rate.value)
-
-    return { blacklist, freeze, notify, rate: Math.max(1, rate) }
-  }
+  // Parse blacklist array into line separated strings
+  const lineup = (a, b) => (a.length ? `${a}\n${b}` : b)
 
   // Update the form given a set of values for each setting
-  const setForm = ({ rate, notify, freeze, blacklist } = {}) => {
-    formElements.rate.value = rate
-    formElements.notify.checked = notify
-    formElements.freeze.checked = freeze
-
-    // Parse blacklist array into line separated strings
-    formElements.blacklist.value = blacklist.reduce((a, b) => (a.length ? `${a}\n${b}` : b), '')
+  const render = ({ ignore = '', notify, period } = {}) => {
+    inputs.ignore.value = ignore.reduce(lineup, '')
+    inputs.notify.checked = notify
+    inputs.period.value = period
   }
 
-  chrome.storage.sync.get(optionIds, (options) => {
+  const review = () => ({
+    ignore: filter(inputs.ignore.value),
+    notify: !!inputs.notify.checked,
+    period: Math.max(1, parseFloat(inputs.period.value))
+  })
+
+  chrome.storage.sync.get(config, (data) => {
     // Update form with options got
-    setForm(options)
+    render(data)
 
     // Hit the reset button to revert form to previous settings
-    formElements.reset.addEventListener('click', () => {
+    reset.addEventListener('click', () => {
       // Reset from storage
-      setForm(options)
+      render(data)
 
       // Show a brief message
-      popMessage('Options reset, hit save to apply!')
+      signal('Options reset, hit save to apply!')
     })
 
     // Click save to store the options, update the form if successful
-    formElements.save.addEventListener('click', () => {
-      const settings = getForm()
+    store.addEventListener('click', () => {
+      const form = review()
 
-      chrome.storage.sync.set(settings, () => {
+      chrome.storage.sync.set(form, () => {
         // Success, let the form reflect the changes
-        setForm(settings)
+        render(form)
 
         // Show a brief message
-        popMessage('Options saved!')
+        signal('Options saved!')
       })
     })
   })
-})(window, document)
+})()
