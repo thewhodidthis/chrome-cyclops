@@ -1,6 +1,6 @@
 {
   "name": "chrome-cyclops",
-  "version": "1.0.7",
+  "version": "2.0.0",
   "description": "Helps source images while browsing",
   "main": "background.js",
   "homepage": "https://zzzxzzz.xyz",
