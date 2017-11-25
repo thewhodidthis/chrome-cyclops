@@ -116,7 +116,7 @@ const upload = ({ source, target } = {}) => fetch(target)
 const update = ({ url = '' } = {}) => {
   chrome.storage.sync.get('ignore', ({ ignore } = {}) => {
     const enabled = isAllowed([...ignore, 'chrome://'], url)
-    const path = enabled ? 'assets/icon.png' : 'assets/icon-lo.png'
+    const path = enabled ? 'assets/icon.png' : 'assets/icon-x.png'
 
     chrome.browserAction.setIcon({ path })
     chrome.contextMenus.update('@cyclops-toggle-timer', { enabled })
